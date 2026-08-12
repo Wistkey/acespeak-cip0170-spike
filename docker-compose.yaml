@@ -40,6 +40,27 @@ services:
         ports:
             - 7723:7723
 
+    # Serves the AceSpeak Communication Credential Profile at its SAID, so KERIA
+    # can resolve the schema when issuing a credential against it. The gleif/vlei
+    # image ships the vLEI schemas but returned empty bodies here, so the spike
+    # publishes its own schema rather than depending on that image. See READINESS.md.
+    schema-server:
+        image: nginx:alpine
+        volumes:
+            - ./schema/oobi:/usr/share/nginx/html/oobi:ro
+        command: >
+            sh -c "echo 'server { listen 7724; default_type application/json;
+            location / { root /usr/share/nginx/html; autoindex on; } }'
+            > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+        healthcheck:
+            test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:7724/oobi/']
+            interval: 2s
+            timeout: 3s
+            retries: 10
+            start_period: 2s
+        ports:
+            - 7724:7724
+
     keria:
         image: ${KERIA_IMAGE:-weboftrust/keria}:${KERIA_IMAGE_TAG:-latest}
         environment:
