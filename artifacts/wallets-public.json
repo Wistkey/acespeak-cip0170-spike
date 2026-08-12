@@ -1,0 +1,14 @@
+{
+  "note": "Both wallets are funded directly from the Cardano testnet faucet. Neither has ever sent funds to the other — check the address histories.",
+  "network": "preprod",
+  "acespeakIssuer": {
+    "address": "addr_test1qpc8szswzp35c7f4f0znrwsvzccnxl5hrtglqq7jy3qkj0nz0m62jpesyr4rng6hmv5jjdvkjv9xur26ma3lsdhvvzrs5k33mc",
+    "role": "publishes AUTH_BEGIN",
+    "explorer": "https://preprod.cardanoscan.io/address/addr_test1qpc8szswzp35c7f4f0znrwsvzccnxl5hrtglqq7jy3qkj0nz0m62jpesyr4rng6hmv5jjdvkjv9xur26ma3lsdhvvzrs5k33mc"
+  },
+  "learnerDemo": {
+    "address": "addr_test1qz5g7xs2jghx0krqkqxrmv4d49cq5udn4sdtxyfk2g7q9u20y3axl3dkj3uhnk4w797nsw8jhdypsy5mjcey5588v0hsx9gkqm",
+    "role": "pays for ATTEST",
+    "explorer": "https://preprod.cardanoscan.io/address/addr_test1qz5g7xs2jghx0krqkqxrmv4d49cq5udn4sdtxyfk2g7q9u20y3axl3dkj3uhnk4w797nsw8jhdypsy5mjcey5588v0hsx9gkqm"
+  }
+}

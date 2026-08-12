@@ -1,0 +1,91 @@
+# Local KERI stack for the spike.
+#
+# Adapted from WebOfTrust/signify-ts' own docker-compose so that this repo runs
+# standalone — you should not need to clone signify-ts to reproduce the demo.
+#
+#   docker compose up --wait
+#
+# Brings up:
+#   keria        :3901 (client) :3902 (agent) :3903 (boot)  — holds encrypted keys
+#   witness-demo :5642-5644                                  — the witness pool
+#   vlei-server  :7723                                       — ACDC schema / OOBI server
+#
+# Note these are localhost-only. That is why the issuer's KEL is committed to
+# artifacts/issuer-kel.cesr: it lets anyone verify the attestation without
+# reaching our machine. See READINESS.md.
+services:
+    vlei-server:
+        image: gleif/vlei
+        environment:
+            - PYTHONUNBUFFERED=1
+            - PYTHONIOENCODING=UTF-8
+        command:
+            - vLEI-server
+            - -s
+            - ./schema/acdc
+            - -c
+            - ./samples/acdc/
+            - -o
+            - ./samples/oobis/
+        healthcheck:
+            test:
+                - CMD
+                - curl
+                - -f
+                - http://localhost:7723/oobi/EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao
+            interval: 2s
+            timeout: 3s
+            retries: 10
+            start_period: 2s
+        ports:
+            - 7723:7723
+
+    keria:
+        image: ${KERIA_IMAGE:-weboftrust/keria}:${KERIA_IMAGE_TAG:-latest}
+        environment:
+            - KERI_AGENT_CORS=1
+            - KERI_URL=http://keria:3902
+            - PYTHONUNBUFFERED=1
+            - PYTHONIOENCODING=UTF-8
+        volumes:
+            - ./config/keria.json:/keria/config/keri/cf/keria.json
+        entrypoint: keria
+        command:
+            - start
+            - --config-dir
+            - /keria/config
+            - --config-file
+            - keria
+            - --name
+            - agent
+        healthcheck:
+            test: ['CMD', 'curl', '-f', 'http://localhost:3902/spec.yaml']
+            interval: 2s
+            timeout: 3s
+            retries: 10
+            start_period: 2s
+        depends_on:
+            witness-demo:
+                condition: service_healthy
+        ports:
+            - 3901:3901
+            - 3902:3902
+            - 3903:3903
+
+    witness-demo:
+        image: weboftrust/keri-witness-demo:1.1.0
+        environment:
+            - PYTHONUNBUFFERED=1
+            - PYTHONIOENCODING=UTF-8
+        healthcheck:
+            test: ['CMD', 'curl', '-f', 'http://localhost:5642/oobi']
+            interval: 2s
+            timeout: 3s
+            retries: 10
+            start_period: 2s
+        volumes:
+            - ./config/witness-demo:/keripy/scripts/keri/cf/main
+        ports:
+            - 5642:5642
+            - 5643:5643
+            - 5644:5644

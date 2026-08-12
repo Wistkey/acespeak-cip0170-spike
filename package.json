@@ -1,0 +1,32 @@
+{
+  "name": "acespeak-cip0170-spike",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CIP-0170 preprod spike: a KERI attestation carrying AceSpeak's AID, anchored on Cardano by a wallet that is not AceSpeak's.",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "wallets": "tsx scripts/00-wallets.ts",
+    "incept": "tsx scripts/01-incept.ts",
+    "anchor": "tsx scripts/02-anchor.ts",
+    "attest": "tsx scripts/03-attest.ts",
+    "auth-begin": "tsx scripts/04-auth-begin.ts",
+    "verify": "tsx src/verify.ts"
+  },
+  "dependencies": {
+    "@lucid-evolution/lucid": "^0.6.1",
+    "signify-ts": "0.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
