@@ -7,6 +7,7 @@
     "maxTxSize": 16384
   },
   "caveat": "Headline fees assume a single-input balanced transaction. A learner wallet holding several UTxOs pays more; inputCostByCount measures that directly.",
+  "reconciliation": "txBytes is the SIGNED transaction size, so minFeeA * txBytes + minFeeB reconciles against feeLovelace. Lucid adds a small safety margin (~4 bytes worth), so the fee charged is a few hundred lovelace above the strict minimum.",
   "inputCostByCount": [
     {
       "inputs": 1,
@@ -26,7 +27,7 @@
       "event": "Learner identity established (one-time)",
       "counts": true,
       "metadataBytes": 426,
-      "txBytes": 527,
+      "txBytes": 633,
       "feeLovelace": 183409,
       "feeAda": 0.183409
     },
@@ -34,7 +35,7 @@
       "event": "Baseline assessment (one-time)",
       "counts": true,
       "metadataBytes": 427,
-      "txBytes": 528,
+      "txBytes": 634,
       "feeLovelace": 183453,
       "feeAda": 0.183453
     },
@@ -42,7 +43,7 @@
       "event": "Monthly progress attestation (recurring)",
       "counts": true,
       "metadataBytes": 426,
-      "txBytes": 527,
+      "txBytes": 633,
       "feeLovelace": 183409,
       "feeAda": 0.183409
     },
@@ -50,7 +51,7 @@
       "event": "Interview Ready pathway",
       "counts": true,
       "metadataBytes": 425,
-      "txBytes": 526,
+      "txBytes": 632,
       "feeLovelace": 183365,
       "feeAda": 0.183365
     },
@@ -58,7 +59,7 @@
       "event": "Presentation Ready pathway",
       "counts": true,
       "metadataBytes": 428,
-      "txBytes": 529,
+      "txBytes": 635,
       "feeLovelace": 183497,
       "feeAda": 0.183497
     },
@@ -66,7 +67,7 @@
       "event": "Oral Communication pathway",
       "counts": true,
       "metadataBytes": 428,
-      "txBytes": 529,
+      "txBytes": 635,
       "feeLovelace": 183497,
       "feeAda": 0.183497
     },
@@ -74,7 +75,7 @@
       "event": "Pitch Ready pathway",
       "counts": true,
       "metadataBytes": 421,
-      "txBytes": 522,
+      "txBytes": 628,
       "feeLovelace": 183189,
       "feeAda": 0.183189
     },
@@ -82,7 +83,7 @@
       "event": "AUTH_BEGIN issuer setup (AceSpeak pays)",
       "counts": false,
       "metadataBytes": 7797,
-      "txBytes": 7796,
+      "txBytes": 7902,
       "feeLovelace": 503245,
       "feeAda": 0.503245
     }

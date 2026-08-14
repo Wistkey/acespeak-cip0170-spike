@@ -90,10 +90,14 @@ preprod protocol parameters. Cardano fees are deterministic in transaction size
 (`minFeeA × size + minFeeB`), so a fully-built transaction gives the exact fee without
 spending anything. Recorded in `artifacts/fee-measurements.json`.
 
-| Event | Metadata | Tx | Fee |
+| Event | Metadata | Signed tx | Fee |
 |---|---:|---:|---:|
-| Any counted `ATTEST` | ~426 B | ~527 B | **0.1834 ADA** |
-| `AUTH_BEGIN` issuer setup (AceSpeak pays, not counted) | 7,797 B | 7,796 B | 0.5032 ADA |
+| Any counted `ATTEST` | ~426 B | ~633 B | **0.1834 ADA** |
+| `AUTH_BEGIN` issuer setup (AceSpeak pays, not counted) | 7,797 B | 7,902 B | 0.5032 ADA |
+
+Check the arithmetic: `44 × 633 + 155381 = 183,233` lovelace against the 183,409 charged —
+the transaction builder adds a few bytes of safety margin. Sizes are of the **signed**
+transaction, so every row reconciles.
 
 Every counted event lands between 0.1832 and 0.1835 ADA — the credential payload is fixed
 in shape, so the fee barely varies. A learner wallet spending more than one UTxO pays

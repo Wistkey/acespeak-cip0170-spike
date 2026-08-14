@@ -77,14 +77,19 @@ async function measure(
     }
 
     const completed = await tx.complete();
-    const cbor = completed.toCBOR();
     const feeLovelace = Number(completed.toTransaction().body().fee());
+
+    // Report the SIGNED size. The unsigned CBOR is ~106 bytes shorter, and
+    // quoting that would leave the table failing its own arithmetic:
+    // minFeeA * size + minFeeB has to reconcile against the fee, or a reader
+    // checking the numbers concludes the whole artifact is wrong.
+    const signed = await completed.sign.withWallet().complete();
 
     return {
         event,
         counts,
         metadataBytes: JSON.stringify(metadata).length,
-        txBytes: cbor.length / 2, // hex-encoded
+        txBytes: signed.toCBOR().length / 2, // hex-encoded
         feeLovelace,
         feeAda: feeLovelace / 1_000_000,
     };
@@ -198,6 +203,8 @@ async function main(): Promise<void> {
                     maxTxSize: PROTOCOL_PARAMETERS_DEFAULT.maxTxSize,
                 },
                 caveat: 'Headline fees assume a single-input balanced transaction. A learner wallet holding several UTxOs pays more; inputCostByCount measures that directly.',
+                reconciliation:
+                    'txBytes is the SIGNED transaction size, so minFeeA * txBytes + minFeeB reconciles against feeLovelace. Lucid adds a small safety margin (~4 bytes worth), so the fee charged is a few hundred lovelace above the strict minimum.',
                 inputCostByCount: inputCosts,
                 measurements: results,
                 countedMeanAda: Number(mean.toFixed(6)),
