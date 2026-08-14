@@ -83,6 +83,23 @@ claims EGzobgWt… — the payload was altered after issuance
 
 ![CIP-0170 attestation flow](assets/diagrams/05-cip0170-attestation.svg)
 
+## Measured fees
+
+`npx tsx scripts/measure-fees.ts` builds and balances each event AceSpeak will emit against
+preprod protocol parameters. Cardano fees are deterministic in transaction size
+(`minFeeA × size + minFeeB`), so a fully-built transaction gives the exact fee without
+spending anything. Recorded in `artifacts/fee-measurements.json`.
+
+| Event | Metadata | Tx | Fee |
+|---|---:|---:|---:|
+| Any counted `ATTEST` | ~426 B | ~527 B | **0.1834 ADA** |
+| `AUTH_BEGIN` issuer setup (AceSpeak pays, not counted) | 7,797 B | 7,796 B | 0.5032 ADA |
+
+Every counted event lands between 0.1832 and 0.1835 ADA — the credential payload is fixed
+in shape, so the fee barely varies. A learner wallet spending more than one UTxO pays
+0.0016 ADA more per extra input (measured: 0.1834 / 0.1849 / 0.1865 for one, two and three
+inputs).
+
 ## How it works
 
 1. **A credential is issued.** A minimal Speaking Passport payload — credential type,

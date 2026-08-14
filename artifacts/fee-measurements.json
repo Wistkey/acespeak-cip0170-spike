@@ -1,0 +1,93 @@
+{
+  "method": "Transactions built and balanced against Lucid Evolution's emulator using preprod protocol parameters. Cardano fees are deterministic in transaction size (minFeeA * size + minFeeB), so a fully-built transaction yields the exact fee without submitting it.",
+  "protocolParameters": {
+    "source": "Koios preprod, epoch 307, cross-checked against Lucid defaults",
+    "minFeeA": 44,
+    "minFeeB": 155381,
+    "maxTxSize": 16384
+  },
+  "caveat": "Headline fees assume a single-input balanced transaction. A learner wallet holding several UTxOs pays more; inputCostByCount measures that directly.",
+  "inputCostByCount": [
+    {
+      "inputs": 1,
+      "feeAda": 0.183365
+    },
+    {
+      "inputs": 2,
+      "feeAda": 0.184949
+    },
+    {
+      "inputs": 3,
+      "feeAda": 0.186533
+    }
+  ],
+  "measurements": [
+    {
+      "event": "Learner identity established (one-time)",
+      "counts": true,
+      "metadataBytes": 426,
+      "txBytes": 527,
+      "feeLovelace": 183409,
+      "feeAda": 0.183409
+    },
+    {
+      "event": "Baseline assessment (one-time)",
+      "counts": true,
+      "metadataBytes": 427,
+      "txBytes": 528,
+      "feeLovelace": 183453,
+      "feeAda": 0.183453
+    },
+    {
+      "event": "Monthly progress attestation (recurring)",
+      "counts": true,
+      "metadataBytes": 426,
+      "txBytes": 527,
+      "feeLovelace": 183409,
+      "feeAda": 0.183409
+    },
+    {
+      "event": "Interview Ready pathway",
+      "counts": true,
+      "metadataBytes": 425,
+      "txBytes": 526,
+      "feeLovelace": 183365,
+      "feeAda": 0.183365
+    },
+    {
+      "event": "Presentation Ready pathway",
+      "counts": true,
+      "metadataBytes": 428,
+      "txBytes": 529,
+      "feeLovelace": 183497,
+      "feeAda": 0.183497
+    },
+    {
+      "event": "Oral Communication pathway",
+      "counts": true,
+      "metadataBytes": 428,
+      "txBytes": 529,
+      "feeLovelace": 183497,
+      "feeAda": 0.183497
+    },
+    {
+      "event": "Pitch Ready pathway",
+      "counts": true,
+      "metadataBytes": 421,
+      "txBytes": 522,
+      "feeLovelace": 183189,
+      "feeAda": 0.183189
+    },
+    {
+      "event": "AUTH_BEGIN issuer setup (AceSpeak pays)",
+      "counts": false,
+      "metadataBytes": 7797,
+      "txBytes": 7796,
+      "feeLovelace": 503245,
+      "feeAda": 0.503245
+    }
+  ],
+  "countedMeanAda": 0.183403,
+  "countedMinAda": 0.183189,
+  "countedMaxAda": 0.183497
+}
