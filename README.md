@@ -79,7 +79,7 @@ INVALID — application payload digest is EAo8XYGq…, but the attestation
 claims EGzobgWt… — the payload was altered after issuance
 ```
 
-`npm test` runs 84 tests with no network and no Docker.
+`npm test` runs 96 tests with no network and no Docker.
 
 ![CIP-0170 attestation flow](assets/diagrams/05-cip0170-attestation.svg)
 
