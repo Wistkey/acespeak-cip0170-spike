@@ -46,9 +46,10 @@ npm ci
 npm run verify -- <attestTxHash>
 ```
 
-Reads the transaction back off preprod, then checks it against the issuer's Key Event Log
-committed at `artifacts/issuer-kel.cesr`. No KERIA, no Docker, nothing of ours needs to be
-reachable. Prints each check and exits non-zero on failure.
+**No API key, no account, no signup.** Transaction data comes from Koios, which serves
+preprod keylessly; the issuer's Key Event Log is committed at `artifacts/issuer-kel.cesr`.
+No KERIA, no Docker, nothing of ours needs to be reachable. Prints each check and exits
+non-zero on failure. (Set `BLOCKFROST_PROJECT_ID` to read through Blockfrost instead.)
 
 ```
   ✓ metadata carries label 170
@@ -126,7 +127,8 @@ rough edges we hit.
 
 ## Reproducing from scratch
 
-Requires Docker and a [Blockfrost](https://blockfrost.io) preprod key.
+Requires Docker. No Blockfrost key — Koios serves preprod keylessly for both reading and
+submitting, so the only external step is funding the wallets from the faucet.
 
 > **On Apple Silicon**, start Colima with Rosetta — the witness image is amd64-only and
 > fails under qemu with an LMDB error that does not mention emulation:
@@ -135,7 +137,7 @@ Requires Docker and a [Blockfrost](https://blockfrost.io) preprod key.
 > ```
 
 ```bash
-cp .env.example .env          # then fill in BLOCKFROST_PROJECT_ID
+cp .env.example .env
 docker compose up --wait      # keria, witness pool, schema server
 
 npm run wallets               # generate both wallets, then fund each from the faucet
@@ -156,6 +158,7 @@ carries the claim. Never move funds between the two wallets.
 | `src/cardano/metadata.ts` | CIP-0170 builders, 64-byte chunking, submission guard. |
 | `src/keri/credential.ts` | Speaking Passport payload; refuses to carry personal data. |
 | `src/keri/kel.ts` | CESR stream parser and seal lookup. |
+| `src/cardano/chain.ts` | Keyless preprod reads via Koios. |
 | `schema/` | Communication Credential Profile v1 (draft), SAIDified and served by SAID. |
 | `artifacts/` | The evidence: issuer AID, KEL, credential, transactions. |
 

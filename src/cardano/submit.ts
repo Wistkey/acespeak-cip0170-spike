@@ -6,11 +6,12 @@
  * cryptographic weight sits entirely in KERI, which is precisely why the
  * transaction can be paid for by a wallet with no relationship to the signer.
  */
-import { Blockfrost, Lucid, type LucidEvolution } from '@lucid-evolution/lucid';
+import { Blockfrost, Koios, Lucid, type LucidEvolution } from '@lucid-evolution/lucid';
 import { assertMetadataValid, CIP0170_LABEL } from './metadata.ts';
-import { required } from '../env.ts';
+import { BLOCKFROST_PREPROD, KOIOS_PREPROD } from './chain.ts';
+import { optional, required } from '../env.ts';
 
-const BLOCKFROST_PREPROD = 'https://cardano-preprod.blockfrost.io/api/v0';
+export { fetchTransactionMetadata } from './chain.ts';
 
 export type WalletName = 'issuer' | 'learner';
 
@@ -19,11 +20,20 @@ const MNEMONIC_VAR: Record<WalletName, string> = {
     learner: 'LEARNER_MNEMONIC',
 };
 
-/** Connect to preprod through Blockfrost with the named wallet selected. */
+/**
+ * Connect to preprod with the named wallet selected.
+ *
+ * Koios by default, so submitting needs no API key and no account signup.
+ * Blockfrost is used instead when BLOCKFROST_PROJECT_ID is set.
+ */
 export async function connectWallet(wallet: WalletName): Promise<LucidEvolution> {
-    const projectId = required('BLOCKFROST_PROJECT_ID');
-    const lucid = await Lucid(new Blockfrost(BLOCKFROST_PREPROD, projectId), 'Preprod');
+    const projectId = optional('BLOCKFROST_PROJECT_ID', '');
+    const provider =
+        projectId === ''
+            ? new Koios(KOIOS_PREPROD)
+            : new Blockfrost(BLOCKFROST_PREPROD, projectId);
 
+    const lucid = await Lucid(provider, 'Preprod');
     lucid.selectWallet.fromSeed(required(MNEMONIC_VAR[wallet]));
     return lucid;
 }
@@ -69,22 +79,3 @@ export async function submitMetadata(
     return { txHash, fee: completed.toTransaction().body().fee(), payer };
 }
 
-/** Fetch a transaction's metadata back from Blockfrost, keyed by label. */
-export async function fetchTransactionMetadata(txHash: string): Promise<Record<string, unknown>> {
-    const projectId = required('BLOCKFROST_PROJECT_ID');
-
-    const response = await fetch(`${BLOCKFROST_PREPROD}/txs/${txHash}/metadata`, {
-        headers: { project_id: projectId },
-    });
-
-    if (response.status === 404) {
-        throw new Error(`transaction ${txHash} not found on preprod`);
-    }
-    if (!response.ok) {
-        throw new Error(`Blockfrost returned ${response.status} for ${txHash}`);
-    }
-
-    const entries = (await response.json()) as Array<{ label: string; json_metadata: unknown }>;
-
-    return Object.fromEntries(entries.map((e) => [e.label, e.json_metadata]));
-}

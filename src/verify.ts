@@ -263,8 +263,8 @@ async function main(): Promise<void> {
 
     await ready();
 
-    // Imported lazily so the pure verifier stays usable with no Blockfrost key.
-    const { fetchTransactionMetadata } = await import('./cardano/submit.ts');
+    // Imported lazily so the pure verifier stays free of any network code.
+    const { fetchTransactionMetadata } = await import('./cardano/chain.ts');
     const metadata = await fetchTransactionMetadata(txHash);
 
     const kel =
