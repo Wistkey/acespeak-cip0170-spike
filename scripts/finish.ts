@@ -142,7 +142,8 @@ async function main(): Promise<void> {
     console.log('Done. To publish:');
     console.log('');
     console.log('  git add -A && git commit -m "spike: record the preprod transactions"');
-    console.log('  gh repo create Wistkey/acespeak-cip0170-spike --public --source=. --push');
+    console.log('  gh auth switch --user wistkeylab   # or: gh auth login');
+    console.log('  gh repo create wistkeylab/acespeak-cip0170-spike --public --source=. --push');
     console.log('');
     console.log(`Then check it opens logged out, and add the URL plus ${CARDANOSCAN_TX(attest.txHash)}`);
     console.log('to the supporting-links field in the application.');
