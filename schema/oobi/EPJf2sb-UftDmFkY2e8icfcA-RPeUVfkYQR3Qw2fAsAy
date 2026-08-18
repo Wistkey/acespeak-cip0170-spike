@@ -1,5 +1,5 @@
 {
-  "$id": "EFbV8Sf-2j4M99YbtStDPL5zkuA8hZNdYsN3ic9XFD3w",
+  "$id": "EPJf2sb-UftDmFkY2e8icfcA-RPeUVfkYQR3Qw2fAsAy",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "AceSpeak Communication Credential Profile",
   "description": "A minimal, non-identifying attestation that a learner reached a defined spoken-communication standard. Deliberately carries no video, transcript, personal information or raw score: the assessment evidence stays private and is referenced only by digest. Draft v1 — the open profile promised in section 6 of the AceSpeak Catalyst pilot plan.",
@@ -45,7 +45,7 @@
           "type": "string"
         },
         {
-          "$id": "EEX0lHRxF8_Mbp-sxIf43Ret6W8_RWdN4FqQoCzMtlWV",
+          "$id": "EPurro5t-v-6ufKHLZGZla7VtMrktmPXBpysoKffrTcm",
           "description": "Attributes block",
           "type": "object",
           "required": [
@@ -70,12 +70,16 @@
               "format": "date-time"
             },
             "credentialType": {
-              "description": "The communication standard being attested",
+              "description": "The event being attested: an identity bind, a speaking baseline, a monthly progress attestation, or completion of one of the four achievement pathways.",
               "type": "string",
               "enum": [
+                "LearnerIdentity",
+                "SpeakingBaseline",
+                "MonthlyProgress",
                 "InterviewReady",
                 "PresentationReady",
-                "ConversationFluent"
+                "OralCommunication",
+                "PitchReady"
               ]
             },
             "schemaVersion": {

@@ -17,7 +17,7 @@
  *
  *   npx tsx scripts/measure-fees.ts
  */
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
     Emulator,
@@ -30,6 +30,12 @@ import { ready } from 'signify-ts';
 import { assertMetadataValid, buildAttest, buildAuthBegin } from '../src/cardano/metadata.ts';
 import { buildCredential, opaqueHolderRef, type SpeakingPassportClaim } from '../src/keri/credential.ts';
 import { ACESPEAK_METADATA_LABEL, HOLDER_REF_SALT } from '../src/config.ts';
+
+// Read from the schema rather than pinned, so correcting the profile cannot
+// leave a stale SAID behind in the fee model.
+const SCHEMA_SAID: string = JSON.parse(
+    readFileSync(resolve(process.cwd(), 'schema/communication-credential-profile.v1.json'), 'utf8')
+).$id;
 
 const AID = 'ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2';
 const SEQ = '1';
@@ -150,7 +156,7 @@ async function main(): Promise<void> {
         await measure(lucid, 'AUTH_BEGIN issuer setup (AceSpeak pays)', false, {
             ...buildAuthBegin({
                 signerAid: AID,
-                schemaSaid: 'EFbV8Sf-2j4M99YbtStDPL5zkuA8hZNdYsN3ic9XFD3w',
+                schemaSaid: SCHEMA_SAID,
                 chain,
                 extra: { l: [ACESPEAK_METADATA_LABEL] },
             }),

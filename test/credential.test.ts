@@ -1,9 +1,13 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { ready } from 'signify-ts';
 import {
     buildCredential,
     DisallowedFieldError,
+    CREDENTIAL_TYPES,
     opaqueHolderRef,
+    UnknownCredentialTypeError,
     verifyCredentialSaid,
     type SpeakingPassportClaim,
 } from '../src/keri/credential.ts';
@@ -32,7 +36,7 @@ describe('buildCredential', () => {
     });
 
     test('changing any field changes the SAID', () => {
-        const other = buildCredential({ ...CLAIM, credentialType: 'ConversationFluent' });
+        const other = buildCredential({ ...CLAIM, credentialType: 'PitchReady' });
 
         expect(other.d).not.toBe(buildCredential(CLAIM).d);
     });
@@ -106,5 +110,44 @@ describe('opaqueHolderRef', () => {
 
     test('differs across salts, so one leaked mapping does not unmask the rest', () => {
         expect(opaqueHolderRef('user-1', 'salt-a')).not.toBe(opaqueHolderRef('user-1', 'salt-b'));
+    });
+});
+
+describe('credentialType is constrained to the published profile', () => {
+    // The schema is SAIDified and published as the open Communication Credential
+    // Profile. A credential carrying a type outside its enum is schema-invalid,
+    // and on-chain that mistake is permanent.
+    test.each([
+        'LearnerIdentity',
+        'SpeakingBaseline',
+        'MonthlyProgress',
+        'InterviewReady',
+        'PresentationReady',
+        'OralCommunication',
+        'PitchReady',
+    ])('accepts %s', (credentialType) => {
+        expect(() => buildCredential({ ...CLAIM, credentialType })).not.toThrow();
+    });
+
+    test('rejects a type that is not in the profile', () => {
+        expect(() => buildCredential({ ...CLAIM, credentialType: 'NativeSpeaker' })).toThrow(
+            UnknownCredentialTypeError
+        );
+    });
+
+    test('names the offending type and lists what is allowed', () => {
+        expect(() => buildCredential({ ...CLAIM, credentialType: 'ConversationFluent' })).toThrow(
+            /ConversationFluent.*InterviewReady/s
+        );
+    });
+
+    test('the allowed set matches the schema enum exactly', async () => {
+        const schema = JSON.parse(
+            readFileSync(resolve(__dirname, '../schema/communication-credential-profile.v1.json'), 'utf8')
+        );
+        const enumerated: string[] =
+            schema.properties.a.oneOf[1].properties.credentialType.enum;
+
+        expect([...CREDENTIAL_TYPES].sort()).toEqual([...enumerated].sort());
     });
 });

@@ -31,6 +31,33 @@ export interface SpeakingPassportCredential extends SpeakingPassportClaim {
     d: string;
 }
 
+/**
+ * The credential types the published profile permits.
+ *
+ * Three product events plus the four achievement pathways named in the pilot
+ * plan. This list and the schema's `credentialType` enum are the same contract
+ * seen from two sides, and a test asserts they stay identical -- a credential
+ * carrying a type outside it is schema-invalid, and on-chain that is permanent.
+ */
+export const CREDENTIAL_TYPES = [
+    'LearnerIdentity',
+    'SpeakingBaseline',
+    'MonthlyProgress',
+    'InterviewReady',
+    'PresentationReady',
+    'OralCommunication',
+    'PitchReady',
+] as const;
+
+export class UnknownCredentialTypeError extends Error {
+    constructor(readonly credentialType: string) {
+        super(
+            `credentialType "${credentialType}" is not in the Communication Credential Profile. Allowed: ${CREDENTIAL_TYPES.join(', ')}`
+        );
+        this.name = 'UnknownCredentialTypeError';
+    }
+}
+
 const ALLOWED_FIELDS: ReadonlySet<string> = new Set([
     'credentialType',
     'schemaVersion',
@@ -62,6 +89,9 @@ export class DisallowedFieldError extends Error {
 export function buildCredential(claim: SpeakingPassportClaim): SpeakingPassportCredential {
     for (const field of Object.keys(claim)) {
         if (!ALLOWED_FIELDS.has(field)) throw new DisallowedFieldError(field);
+    }
+    if (!(CREDENTIAL_TYPES as readonly string[]).includes(claim.credentialType)) {
+        throw new UnknownCredentialTypeError(claim.credentialType);
     }
 
     // Fixed key order so the SAID depends on the claim, not on how the caller

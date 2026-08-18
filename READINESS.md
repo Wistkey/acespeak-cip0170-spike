@@ -133,7 +133,7 @@ are publicly reachable and the OOBI is published on a stable AceSpeak-controlled
   onboarding; at Milestone 1 this becomes whatever that spec says. It is a config value
   (`ACESPEAK_METADATA_LABEL`), not a constant in code, so the switch is a config change.
 - **Communication Credential Profile v1** is a draft. Its SAID is
-  `EFbV8Sf-2j4M99YbtStDPL5zkuA8hZNdYsN3ic9XFD3w`; being self-addressing, it cannot be
+  `EPJf2sb-UftDmFkY2e8icfcA-RPeUVfkYQR3Qw2fAsAy`; being self-addressing, it cannot be
   edited without changing the identifier every credential references.
 
 ## 7. Fallbacks if the tooling slips

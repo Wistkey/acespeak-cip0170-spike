@@ -79,7 +79,7 @@ INVALID — application payload digest is EAo8XYGq…, but the attestation
 claims EGzobgWt… — the payload was altered after issuance
 ```
 
-`npm test` runs 96 tests with no network and no Docker.
+`npm test` runs 106 tests with no network and no Docker.
 
 ![CIP-0170 attestation flow](assets/diagrams/05-cip0170-attestation.svg)
 
@@ -156,7 +156,7 @@ carries the claim. Never move funds between the two wallets.
 | `src/cardano/metadata.ts` | CIP-0170 builders, 64-byte chunking, submission guard. |
 | `src/keri/credential.ts` | Speaking Passport payload; refuses to carry personal data. |
 | `src/keri/kel.ts` | CESR stream parser and seal lookup. |
-| `schema/` | Communication Credential Profile v1 (draft), SAIDified. |
+| `schema/` | Communication Credential Profile v1 (draft), SAIDified and served by SAID. |
 | `artifacts/` | The evidence: issuer AID, KEL, credential, transactions. |
 
 ## Context

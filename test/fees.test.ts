@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, test } from 'vitest';
 import {
     Emulator,
@@ -10,6 +12,12 @@ import { ready } from 'signify-ts';
 import { assertMetadataValid, buildAttest, buildAuthBegin } from '../src/cardano/metadata.ts';
 import { buildCredential, opaqueHolderRef } from '../src/keri/credential.ts';
 import { ACESPEAK_METADATA_LABEL, HOLDER_REF_SALT } from '../src/config.ts';
+
+// Read from the schema rather than pinned, so correcting the profile cannot
+// leave a stale SAID behind in the fee model.
+const SCHEMA_SAID: string = JSON.parse(
+    readFileSync(resolve(process.cwd(), 'schema/communication-credential-profile.v1.json'), 'utf8')
+).$id;
 
 /**
  * The measured CIP-0170 fee is quoted in the Catalyst application, the pilot
@@ -105,7 +113,7 @@ describe('AUTH_BEGIN', () => {
     test('the credential chain fits inside one transaction', async () => {
         const metadata = buildAuthBegin({
             signerAid: AID,
-            schemaSaid: 'EFbV8Sf-2j4M99YbtStDPL5zkuA8hZNdYsN3ic9XFD3w',
+            schemaSaid: SCHEMA_SAID,
             chain: 'A'.repeat(7260), // the real chain length, from 04-auth-begin
             extra: { l: [ACESPEAK_METADATA_LABEL] },
         });
@@ -117,7 +125,7 @@ describe('AUTH_BEGIN', () => {
         const authBegin = await feeOf(
             buildAuthBegin({
                 signerAid: AID,
-                schemaSaid: 'EFbV8Sf-2j4M99YbtStDPL5zkuA8hZNdYsN3ic9XFD3w',
+                schemaSaid: SCHEMA_SAID,
                 chain: 'A'.repeat(7260),
                 extra: { l: [ACESPEAK_METADATA_LABEL] },
             })
