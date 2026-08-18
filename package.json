@@ -17,7 +17,8 @@
     "anchor": "tsx scripts/02-anchor.ts",
     "attest": "tsx scripts/03-attest.ts",
     "auth-begin": "tsx scripts/04-auth-begin.ts",
-    "verify": "tsx src/verify.ts"
+    "verify": "tsx src/verify.ts",
+    "finish": "tsx scripts/finish.ts"
   },
   "dependencies": {
     "@lucid-evolution/lucid": "^0.6.1",

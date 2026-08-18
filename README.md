@@ -17,10 +17,11 @@ not: a fee counts only when it is not paid from the applicant's own wallets.
 
 ## The transactions
 
-> **Status: pending funding.** Both wallets are generated and the attestation is built and
-> verified end to end offline; the two preprod transactions are submitted once the wallets
-> are funded from the faucet. This section carries the hashes and CardanoScan links the
-> moment they land.
+> **Status: pending funding.** Both wallets are generated and the attestation is built,
+> submitted and verified end to end against an emulator; the two preprod transactions go out
+> once the wallets are funded from the faucet. Fund them, then run `npm run finish` — it
+> submits both, verifies the attestation against live chain data and writes the hashes into
+> this section.
 
 | | Transaction | Fee paid by | Counts as adoption |
 |---|---|---|---|
@@ -80,7 +81,7 @@ INVALID — application payload digest is EAo8XYGq…, but the attestation
 claims EGzobgWt… — the payload was altered after issuance
 ```
 
-`npm test` runs 106 tests with no network and no Docker.
+`npm test` runs 118 tests with no network and no Docker.
 
 ![CIP-0170 attestation flow](assets/diagrams/05-cip0170-attestation.svg)
 
@@ -143,8 +144,7 @@ docker compose up --wait      # keria, witness pool, schema server
 npm run wallets               # generate both wallets, then fund each from the faucet
 npm run incept                # create the issuer AID  -> save KERI_BRAN to .env
 npm run anchor                # issue a credential and anchor its digest
-npm run attest                # submit ATTEST, paid by learner-demo
-npm run auth-begin            # submit AUTH_BEGIN, paid by AceSpeak
+npm run finish                # submit both, verify, record the hashes
 ```
 
 Fund `learner-demo` **first** — the faucet rate-limits, and that is the wallet whose fee
