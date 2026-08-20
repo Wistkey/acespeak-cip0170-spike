@@ -12,6 +12,7 @@
  * {@link buildCredential} enforces that rather than trusting a checklist.
  */
 import { Diger, MtrDex, Saider } from 'signify-ts';
+import { canonicalise } from './canonical.ts';
 
 export interface SpeakingPassportClaim {
     /** The credential being asserted, e.g. `InterviewReady`. */
@@ -94,8 +95,9 @@ export function buildCredential(claim: SpeakingPassportClaim): SpeakingPassportC
         throw new UnknownCredentialTypeError(claim.credentialType);
     }
 
-    // Fixed key order so the SAID depends on the claim, not on how the caller
-    // happened to build the object.
+    // Canonical key order, matching what Cardano returns. Deriving over any
+    // other order produces a SAID that cannot be re-derived from the on-chain
+    // payload — which is exactly how the first preprod attestation failed.
     const sad = {
         d: '',
         credentialType: claim.credentialType,
@@ -105,7 +107,7 @@ export function buildCredential(claim: SpeakingPassportClaim): SpeakingPassportC
         evidenceDigest: claim.evidenceDigest,
     };
 
-    const [, saidified] = Saider.saidify(sad);
+    const [, saidified] = Saider.saidify(canonicalise(sad));
     return saidified as unknown as SpeakingPassportCredential;
 }
 
@@ -119,7 +121,7 @@ export function verifyCredentialSaid(credential: SpeakingPassportCredential): bo
     if (typeof credential?.d !== 'string' || credential.d === '') return false;
 
     try {
-        const [, recomputed] = Saider.saidify({ ...credential, d: '' });
+        const [, recomputed] = Saider.saidify(canonicalise({ ...credential, d: '' }));
         return (recomputed as { d: string }).d === credential.d;
     } catch {
         return false;

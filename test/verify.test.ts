@@ -185,3 +185,38 @@ describe('verifyAttestation rejects malformed metadata', () => {
         expect(result.valid).toBe(false);
     });
 });
+
+describe('round-tripping through Cardano metadata', () => {
+    /**
+     * The regression that a live preprod transaction caught and an emulator
+     * rehearsal did not: Cardano returns metadata map keys in canonical CBOR
+     * order, not the order they were submitted in. A digest computed over the
+     * issuer's ordering cannot be re-derived from what a verifier reads back.
+     */
+    test('accepts a payload whose keys come back reordered by the chain', () => {
+        const metadata = validMetadata() as Record<string, unknown>;
+        const payload = metadata[String(ACESPEAK_METADATA_LABEL)] as Record<string, unknown>;
+
+        // Reverse the key order, as hostile to the original as possible.
+        const reordered: Record<string, unknown> = {};
+        for (const key of Object.keys(payload).reverse()) reordered[key] = payload[key];
+        metadata[String(ACESPEAK_METADATA_LABEL)] = reordered;
+
+        const result = verifyAttestation({ metadata, kel: KEL });
+
+        expect(result.reason).toBeUndefined();
+        expect(result.valid).toBe(true);
+    });
+
+    test('still rejects an altered value, not merely a reordered one', () => {
+        const metadata = validMetadata() as Record<string, unknown>;
+        const payload = metadata[String(ACESPEAK_METADATA_LABEL)] as Record<string, unknown>;
+        const reordered: Record<string, unknown> = { credentialType: 'NativeSpeaker' };
+        for (const key of Object.keys(payload).reverse()) {
+            if (key !== 'credentialType') reordered[key] = payload[key];
+        }
+        metadata[String(ACESPEAK_METADATA_LABEL)] = reordered;
+
+        expect(verifyAttestation({ metadata, kel: KEL }).valid).toBe(false);
+    });
+});

@@ -1,0 +1,19 @@
+{
+  "170": {
+    "d": "EGzobgWt3CAfs5SOqmGk5BXmHQlOmO4PH08OiBYIlcDW",
+    "i": "ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2",
+    "s": "1",
+    "t": "ATTEST",
+    "v": {
+      "v": "1.0"
+    }
+  },
+  "170170": {
+    "d": "EGzobgWt3CAfs5SOqmGk5BXmHQlOmO4PH08OiBYIlcDW",
+    "issuedAt": "2026-08-12T09:51:09Z",
+    "holderRef": "ENJLf77FZQoryt-HVzL8asAWuvS8fRPo2lLIHTBbQxBt",
+    "schemaVersion": "1.0.0",
+    "credentialType": "InterviewReady",
+    "evidenceDigest": "ECYq0qK10yhXGgxd9mJHxzZXWuSqT9kQ-BjbMFCBeXbP"
+  }
+}

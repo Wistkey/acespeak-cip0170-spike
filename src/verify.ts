@@ -29,6 +29,7 @@ import { pathToFileURL } from 'node:url';
 import { ready, Saider } from 'signify-ts';
 import { CIP0170_LABEL, CIP_VERSION } from './cardano/metadata.ts';
 import { findEventBySequence, hasDigestSeal, parseKel, verifyKelLinkage } from './keri/kel.ts';
+import { canonicalise } from './keri/canonical.ts';
 
 export interface Check {
     name: string;
@@ -76,7 +77,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 function rederiveSaid(payload: Record<string, unknown>): string | undefined {
     try {
-        const [, saidified] = Saider.saidify({ ...payload, d: '' });
+        // Canonicalise first: the chain returns map keys in CBOR canonical
+        // order, not the order they were submitted in, and the SAID is a digest
+        // over a serialisation. Without this a perfectly untouched payload
+        // fails to re-derive. See src/keri/canonical.ts.
+        const [, saidified] = Saider.saidify(canonicalise({ ...payload, d: '' }));
         return (saidified as { d?: string }).d;
     } catch {
         return undefined;

@@ -17,16 +17,26 @@ not: a fee counts only when it is not paid from the applicant's own wallets.
 
 ## The transactions
 
-> **Status: pending funding.** Both wallets are generated and the attestation is built,
-> submitted and verified end to end against an emulator; the two preprod transactions go out
-> once the wallets are funded from the faucet. Fund them, then run `npm run finish` — it
-> submits both, verifies the attestation against live chain data and writes the hashes into
-> this section.
-
 | | Transaction | Fee paid by | Counts as adoption |
 |---|---|---|---|
-| **`ATTEST`** | _pending_ | `learner-demo` — funded independently from the faucet | **Yes** |
-| **`AUTH_BEGIN`** | _pending_ | `acespeak-issuer` — AceSpeak's own wallet | No, by design |
+| **`ATTEST`** | [`9f84c95d81d3ce33…`](https://preprod.cardanoscan.io/transaction/9f84c95d81d3ce338c3af0aecf2c0c87dc10ad3b75c1d77772cec7b22cd66444) | `learner-demo` — 0.183541 tADA | **Yes** |
+| **`AUTH_BEGIN`** | _pending — faucet rate-limited the issuer wallet_ | `acespeak-issuer` | No, by design |
+
+Verified against live chain data, with no API key:
+
+```
+$ npm run verify -- 9f84c95d81d3ce338c3af0aecf2c0c87dc10ad3b75c1d77772cec7b22cd66444
+VALID — EABWjePbDoSvZzuuJPeasCNRQQiR3m0j0jLQwqPRBLlb is anchored in ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2 at sequence 4
+```
+
+**The independence is checkable on chain.** Every input to every `learner-demo`
+transaction traces to the testnet faucet; `acespeak-issuer` never appears as an input, so
+no value has ever flowed between the two wallets.
+
+**A genuine INVALID example:** [`f690640a6a77a179…`](https://preprod.cardanoscan.io/transaction/f690640a6a77a17926a0f0ca272870f486c90cbabe7f07035c42e3de574d4de1) is an earlier attestation of ours
+that does **not** verify — the payload digest cannot be re-derived from what the chain
+returns. It is left on chain deliberately. Run the verifier against it and it reports
+INVALID with the reason; see [`READINESS.md`](READINESS.md) §3.2 for what went wrong.
 
 **Wallets** (see `artifacts/wallets-public.json`) — neither has ever sent funds to the
 other, which is checkable on-chain:
@@ -81,7 +91,7 @@ INVALID — application payload digest is EAo8XYGq…, but the attestation
 claims EGzobgWt… — the payload was altered after issuance
 ```
 
-`npm test` runs 118 tests with no network and no Docker.
+`npm test` runs 126 tests with no network and no Docker.
 
 ![CIP-0170 attestation flow](assets/diagrams/05-cip0170-attestation.svg)
 

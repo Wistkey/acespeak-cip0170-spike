@@ -67,15 +67,52 @@ it over the sibling application metadata. It never fixes how that data is serial
 before digesting — and JSON key order, whitespace and number formatting all change the
 result.
 
-We sidestep the ambiguity: the application payload is **SAIDified**, so `d` is the
-payload's own self-addressing identifier, derived by KERI's standard algorithm. Issuer and
-verifier arrive at the same value with no convention to agree on beyond KERI itself. A
-verifier re-derives it with `Saider.saidify` and compares.
+We SAIDify the application payload, so `d` is the payload's own self-addressing
+identifier, derived by KERI's standard algorithm.
+
+**That alone is not sufficient, and a live preprod transaction proved it.** A SAID is a
+digest over a serialisation, so it depends on key order — and Cardano stores metadata as
+CBOR, which returns map keys in *canonical CBOR order*: sorted by encoded key length, then
+bytewise. Submit
+
+```
+{d, credentialType, schemaVersion, issuedAt, holderRef, evidenceDigest}
+```
+
+and the chain hands back
+
+```
+{d, issuedAt, holderRef, schemaVersion, credentialType, evidenceDigest}
+```
+
+The values are untouched. The order is not. So the digest cannot be re-derived from what a
+verifier reads, and a perfectly honest attestation reports INVALID. Our first preprod
+attestation did exactly that — it is still on chain, linked from the README, as a real
+example of the verifier correctly refusing something it cannot re-derive.
+
+**This is the sharp edge of the gap.** CIP-0170 says `d` is "the digest of the data being
+signed" and never fixes a canonical form — but the chain imposes one regardless, so an
+implementer who digests in their own key order gets attestations that never verify. The
+spec should say so. This is the finding most worth taking back to the CIP authors.
+
+Our fix is to adopt the chain's own ordering: `src/keri/canonical.ts` sorts keys into
+canonical CBOR order, and both derivation and verification canonicalise first. The round
+trip then becomes a no-op — the payload comes back in exactly the order it was digested in.
 
 A consequence worth noting: this puts the credential payload on-chain, so an attestation
 verifies from a transaction hash alone with no off-chain file to fetch. That is why the
 payload is minimal and non-identifying, and why `buildCredential()` refuses to build one
 carrying a name, email, transcript or score rather than trusting a review checklist.
+
+### 3.3 What an emulator will not tell you
+
+The submission path was rehearsed against an emulator before spending any real ADA, and
+that rehearsal passed while the bug above was present. It verified the metadata object the
+code had just built, which is not the thing a reviewer verifies — a reviewer verifies what
+comes back off the chain. The two differ, and only the round trip shows it.
+
+Worth generalising: for anything that leaves the process and comes back, test the value
+that returns, not the value you sent.
 
 ## 4. Toolchain rough edges we hit
 
