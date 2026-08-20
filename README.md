@@ -178,8 +178,15 @@ Built for AceSpeak's Catalyst Pilot application. AceSpeak is a live iOS and Andr
 speaking-practice product with paying subscribers; this spike is the integration work the
 grant would fund, de-risked before submission.
 
-Team Cardano track record: [merged PRs to `bloxbean/yaci-devkit`](https://github.com/bloxbean/yaci-devkit/pulls?q=is%3Apr+author%3Awistkeylab)
-by [@wistkeylab](https://github.com/wistkeylab).
+**Team Cardano track record.** The same team has **8 merged pull requests to
+[`bloxbean/yaci-devkit`](https://github.com/bloxbean/yaci-devkit/pulls?q=is%3Apr+author%3Awistkeylab)**
+— the local Cardano devnet used across the ecosystem — landed between February and May 2026
+under the [`wistkeylab`](https://github.com/wistkeylab) account, which is Wistkey Lab's shared
+engineering account. This repository sits under the Wistkey organisation; both are the same team.
+
+Stated precisely rather than oversold: those are contributions to a Cardano developer tool's web
+UI, not shipped KERI signing. The honest claim is that the team already works inside Cardano
+tooling and has upstreamed accepted code, and that CIP-0170 attestation signing is the new work.
 
 ## References
 
