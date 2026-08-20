@@ -1,0 +1,35 @@
+name: verify
+
+# Proves the claim the README makes: the test suite runs with no Docker, no
+# KERIA, no API key and no network access to anything of ours. A clean runner
+# is the only honest way to demonstrate that — it passing on the author's
+# laptop proves nothing about a reviewer's machine.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 20, not the author's Node 25, so the pinned toolchain is exercised
+      # at the version package.json actually claims to support.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test — offline, no Docker, no credentials
+        run: npm test
+
+      - name: Confirm the committed KEL verifies with no services running
+        run: npx tsx test/tamper-demo.ts || test $? -eq 1
