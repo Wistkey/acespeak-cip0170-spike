@@ -1,5 +1,7 @@
 # AceSpeak — CIP-0170 preprod spike
 
+[![verify](https://github.com/Wistkey/acespeak-cip0170-spike/actions/workflows/verify.yml/badge.svg)](https://github.com/Wistkey/acespeak-cip0170-spike/actions/workflows/verify.yml)
+
 A KERI attestation carrying **AceSpeak's** identifier, anchored on Cardano by a wallet
 that is **not AceSpeak's**.
 
@@ -93,7 +95,20 @@ INVALID — application payload digest is EAo8XYGq…, but the attestation
 claims EGzobgWt… — the payload was altered after issuance
 ```
 
-`npm test` runs 126 tests with no network and no Docker.
+`npm test` runs 126 tests with no network and no Docker — and CI runs them on a clean
+Ubuntu runner with Node 20, so that claim is checkable rather than asserted.
+
+**Cross-check the committed KEL against a live witness.** The default verifies against
+`artifacts/issuer-kel.cesr`, which we control — so the repo also supports resolving the KEL
+live and confirming the two agree:
+
+```bash
+npm run verify -- <attestTxHash> --oobi http://localhost:5642/oobi/<AID>/witness
+```
+
+Both paths return VALID against the same digest and sequence number. The witness runs from
+this repo's `docker-compose.yaml`; it is localhost-only, which is exactly why the KEL is
+committed. See [`READINESS.md`](READINESS.md) §5.
 
 ![CIP-0170 attestation flow](assets/diagrams/05-cip0170-attestation.svg)
 
