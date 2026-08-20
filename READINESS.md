@@ -98,7 +98,11 @@ signed" and never fixes a canonical form. Two readers of the same transaction th
 compute different digests depending on how they obtained it — raw CBOR gives one answer, a
 db-sync-backed JSON API gives another — so validity becomes a property of the reader rather
 than of the attestation. The spec should mandate a canonical form. This is the finding most
-worth taking back to the CIP authors.
+worth taking back to the CIP authors, and is filed as
+[cardano-foundation/CIPs#1249](https://github.com/cardano-foundation/CIPs/issues/1249).
+
+Scope, precisely: it affects `ATTEST` only. `AUTH_BEGIN` / `AUTH_END` have their `m` block
+reordered identically, but nothing digests it, and `c` is a byte-stream rather than a map.
 
 Our fix is to digest a canonical form so the answer cannot depend on the reader:
 `src/keri/canonical.ts` sorts keys by length then bytewise, and both derivation and
