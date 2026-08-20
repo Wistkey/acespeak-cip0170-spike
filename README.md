@@ -34,9 +34,11 @@ transaction traces to the testnet faucet; `acespeak-issuer` never appears as an 
 no value has ever flowed between the two wallets.
 
 **A genuine INVALID example:** [`f690640a6a77a179…`](https://preprod.cardanoscan.io/transaction/f690640a6a77a17926a0f0ca272870f486c90cbabe7f07035c42e3de574d4de1) is an earlier attestation of ours
-that does **not** verify — the payload digest cannot be re-derived from what the chain
-returns. It is left on chain deliberately. Run the verifier against it and it reports
-INVALID with the reason; see [`READINESS.md`](READINESS.md) §3.2 for what went wrong.
+that does **not** verify. Its payload was digested in one key order, but JSON indexer APIs
+return metadata keys in another, so the digest cannot be re-derived by the readers verifiers
+actually use. It is left on chain deliberately: run the verifier against it and it reports
+INVALID with the reason. [`READINESS.md`](READINESS.md) §3.2 has the full account — it is the
+most useful thing this spike found.
 
 **Wallets** (see `artifacts/wallets-public.json`) — neither has ever sent funds to the
 other, which is checkable on-chain:

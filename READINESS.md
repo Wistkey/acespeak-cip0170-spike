@@ -71,9 +71,12 @@ We SAIDify the application payload, so `d` is the payload's own self-addressing
 identifier, derived by KERI's standard algorithm.
 
 **That alone is not sufficient, and a live preprod transaction proved it.** A SAID is a
-digest over a serialisation, so it depends on key order — and Cardano stores metadata as
-CBOR, which returns map keys in *canonical CBOR order*: sorted by encoded key length, then
-bytewise. Submit
+digest over a serialisation, so it depends on key order.
+
+The **on-chain CBOR is faithful** — we confirmed it byte for byte: it preserves exactly the
+key order we submitted. But almost nobody verifies against raw CBOR. Verifiers read a JSON
+indexer API, and those are built on cardano-db-sync, which stores transaction metadata in
+PostgreSQL `jsonb`. jsonb normalises object keys by length first, then bytewise. Submit
 
 ```
 {d, credentialType, schemaVersion, issuedAt, holderRef, evidenceDigest}
@@ -91,13 +94,16 @@ attestation did exactly that — it is still on chain, linked from the README, a
 example of the verifier correctly refusing something it cannot re-derive.
 
 **This is the sharp edge of the gap.** CIP-0170 says `d` is "the digest of the data being
-signed" and never fixes a canonical form — but the chain imposes one regardless, so an
-implementer who digests in their own key order gets attestations that never verify. The
-spec should say so. This is the finding most worth taking back to the CIP authors.
+signed" and never fixes a canonical form. Two readers of the same transaction therefore
+compute different digests depending on how they obtained it — raw CBOR gives one answer, a
+db-sync-backed JSON API gives another — so validity becomes a property of the reader rather
+than of the attestation. The spec should mandate a canonical form. This is the finding most
+worth taking back to the CIP authors.
 
-Our fix is to adopt the chain's own ordering: `src/keri/canonical.ts` sorts keys into
-canonical CBOR order, and both derivation and verification canonicalise first. The round
-trip then becomes a no-op — the payload comes back in exactly the order it was digested in.
+Our fix is to digest a canonical form so the answer cannot depend on the reader:
+`src/keri/canonical.ts` sorts keys by length then bytewise, and both derivation and
+verification canonicalise first. We adopt jsonb's ordering specifically because it is what
+the common APIs already return, which makes the round trip a no-op in practice.
 
 A consequence worth noting: this puts the credential payload on-chain, so an attestation
 verifies from a transaction hash alone with no off-chain file to fetch. That is why the
