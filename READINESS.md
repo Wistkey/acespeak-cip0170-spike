@@ -104,6 +104,22 @@ worth taking back to the CIP authors, and is filed as
 Scope, precisely: it affects `ATTEST` only. `AUTH_BEGIN` / `AUTH_END` have their `m` block
 reordered identically, but nothing digests it, and `c` is a byte-stream rather than a map.
 
+**Upstream outcome.** The CIP-0170 author has confirmed the omission and is preparing a PR.
+Their reference implementations digest the **CBOR metadata map** — i.e. the bytes actually on
+chain — which is the better invariant than any canonicalisation the CIP would have to define
+and maintain. We agree with that direction.
+
+This makes our canonicalisation a **workaround, not a position.** Once the spec text lands,
+`src/keri/canonical.ts` should be replaced by digesting the label's CBOR bytes, and
+`verify.ts` should read them from a raw-bytes endpoint (`db-sync` keeps them in
+`tx_metadata.bytes`; Blockfrost exposes `/txs/{hash}/metadata/cbor` per label; Koios exposes
+`/tx_cbor`) rather than from a JSON metadata endpoint. That is a Milestone 1 task, tracked on
+the issue, and we offered our two preprod transactions as test vectors for the PR.
+
+Worth keeping in view: under the CBOR rule, **JSON metadata endpoints become unusable for
+verification** — jsonb destroys key order at write time, so the digest is unrecoverable from
+them however carefully a verifier works. Our public verifier must therefore read raw bytes.
+
 Our fix is to digest a canonical form so the answer cannot depend on the reader:
 `src/keri/canonical.ts` sorts keys by length then bytewise, and both derivation and
 verification canonicalise first. We adopt jsonb's ordering specifically because it is what
