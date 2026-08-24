@@ -151,7 +151,10 @@ async function main(): Promise<void> {
     }
 
     // AUTH_BEGIN: AceSpeak's own setup transaction, deliberately not counted.
-    const chain = 'A'.repeat(7260); // the real chain measured in 04-auth-begin
+    // Read the real chain rather than a synthetic string of its length: the
+    // chain grows as credentials are issued into the registry, and a hardcoded
+    // length silently understates the fee once it does.
+    const chain = readFileSync(resolve(process.cwd(), 'artifacts/auth-begin-chain.cesr'), 'utf8');
     results.push(
         await measure(lucid, 'AUTH_BEGIN issuer setup (AceSpeak pays)', false, {
             ...buildAuthBegin({

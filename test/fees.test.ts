@@ -15,6 +15,12 @@ import { ACESPEAK_METADATA_LABEL, HOLDER_REF_SALT } from '../src/config.ts';
 
 // Read from the schema rather than pinned, so correcting the profile cannot
 // leave a stale SAID behind in the fee model.
+/** The chain actually published on chain, not a synthetic stand-in. */
+const REAL_CHAIN: string = readFileSync(
+    resolve(process.cwd(), 'artifacts/auth-begin-chain.cesr'),
+    'utf8'
+);
+
 const SCHEMA_SAID: string = JSON.parse(
     readFileSync(resolve(process.cwd(), 'schema/communication-credential-profile.v1.json'), 'utf8')
 ).$id;
@@ -114,7 +120,7 @@ describe('AUTH_BEGIN', () => {
         const metadata = buildAuthBegin({
             signerAid: AID,
             schemaSaid: SCHEMA_SAID,
-            chain: 'A'.repeat(7260), // the real chain length, from 04-auth-begin
+            chain: REAL_CHAIN,
             extra: { l: [ACESPEAK_METADATA_LABEL] },
         });
 
@@ -126,7 +132,7 @@ describe('AUTH_BEGIN', () => {
             buildAuthBegin({
                 signerAid: AID,
                 schemaSaid: SCHEMA_SAID,
-                chain: 'A'.repeat(7260),
+                chain: REAL_CHAIN,
                 extra: { l: [ACESPEAK_METADATA_LABEL] },
             })
         );

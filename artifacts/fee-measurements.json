@@ -82,10 +82,10 @@
     {
       "event": "AUTH_BEGIN issuer setup (AceSpeak pays)",
       "counts": false,
-      "metadataBytes": 7797,
-      "txBytes": 7902,
-      "feeLovelace": 503245,
-      "feeAda": 0.503245
+      "metadataBytes": 11339,
+      "txBytes": 10840,
+      "feeLovelace": 632517,
+      "feeAda": 0.632517
     }
   ],
   "countedMeanAda": 0.183403,

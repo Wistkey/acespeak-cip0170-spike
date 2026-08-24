@@ -22,7 +22,7 @@ not: a fee counts only when it is not paid from the applicant's own wallets.
 | | Transaction | Fee paid by | Counts as adoption |
 |---|---|---|---|
 | **`ATTEST`** | [`9f84c95d81d3ce33…`](https://preprod.cardanoscan.io/transaction/9f84c95d81d3ce338c3af0aecf2c0c87dc10ad3b75c1d77772cec7b22cd66444) | `learner-demo` — 0.183541 tADA | **Yes** |
-| **`AUTH_BEGIN`** | _pending — faucet rate-limited the issuer wallet_ | `acespeak-issuer` | No, by design |
+| **`AUTH_BEGIN`** | [`123c5d18bb2317fd…`](https://preprod.cardanoscan.io/transaction/123c5d18bb2317fdbdc85eb10e1f862591590c224113936a038835cd1ba7270d) | `acespeak-issuer` — 0.632693 tADA | No, by design |
 
 Verified against live chain data, with no API key:
 
@@ -68,18 +68,18 @@ non-zero on failure. (Set `BLOCKFROST_PROJECT_ID` to read through Blockfrost ins
 
 ```
   ✓ metadata carries label 170
-  ✓ transaction type is ATTEST
+  ✓ transaction type is ATTEST  (ATTEST)
   ✓ ATTEST carries i, d and s
-  ✓ CIP version is supported
+  ✓ CIP version is supported  (1.0)
   ✓ application payload is present  (170170)
-  ✓ application payload re-derives to d
-  ✓ KEL parses  (2 events)
+  ✓ application payload re-derives to d  (EABWjePbDoSvZzuuJPeasCNRQQiR3m0j0jLQwqPRBLlb)
+  ✓ KEL parses  (5 events)
   ✓ KEL chain is intact
-  ✓ KEL belongs to the signer
-  ✓ KEL has an event at sequence s  (1)
+  ✓ KEL belongs to the signer  (ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2)
+  ✓ KEL has an event at sequence s  (4)
   ✓ event at s anchors the digest as a seal
 
-VALID — EGzobgWt… is anchored in ENIjVYIW… at sequence 1
+VALID — EABWjePbDoSvZzuuJPeasCNRQQiR3m0j0jLQwqPRBLlb is anchored in ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2 at sequence 4
 ```
 
 And the negative case, which matters more:
@@ -91,8 +91,9 @@ npx tsx test/tamper-demo.ts     # alters the credential, expects INVALID
 ```
   ✗ application payload re-derives to d
 
-INVALID — application payload digest is EAo8XYGq…, but the attestation
-claims EGzobgWt… — the payload was altered after issuance
+INVALID — application payload digest is EPTKfkai6M8xM_FbEAd_nMtW-kL_KeEzWUPBhaE8z5-v,
+but the attestation claims EABWjePbDoSvZzuuJPeasCNRQQiR3m0j0jLQwqPRBLlb — the payload
+was altered after issuance
 ```
 
 `npm test` runs 126 tests with no network and no Docker — and CI runs them on a clean
@@ -119,19 +120,24 @@ preprod protocol parameters. Cardano fees are deterministic in transaction size
 (`minFeeA × size + minFeeB`), so a fully-built transaction gives the exact fee without
 spending anything. Recorded in `artifacts/fee-measurements.json`.
 
-| Event | Metadata | Signed tx | Fee |
-|---|---:|---:|---:|
-| Any counted `ATTEST` | ~426 B | ~633 B | **0.1834 ADA** |
-| `AUTH_BEGIN` issuer setup (AceSpeak pays, not counted) | 7,797 B | 7,902 B | 0.5032 ADA |
+| Event | Metadata | Signed tx | Modelled | **Actually charged on chain** |
+|---|---:|---:|---:|---:|
+| Any counted `ATTEST` | ~426 B | ~633 B | 0.183365 | **0.183541 ADA** |
+| `AUTH_BEGIN` issuer setup (AceSpeak pays, not counted) | 11,339 B | 10,840 B | 0.632517 | **0.632693 ADA** |
 
-Check the arithmetic: `44 × 633 + 155381 = 183,233` lovelace against the 183,409 charged —
-the transaction builder adds a few bytes of safety margin. Sizes are of the **signed**
-transaction, so every row reconciles.
+Both modelled figures land within 176 lovelace of what the network actually charged, which
+is the transaction builder's safety margin. The model was built before either transaction
+was submitted, so this is a genuine prediction rather than a fit.
 
-Every counted event lands between 0.1832 and 0.1835 ADA — the credential payload is fixed
-in shape, so the fee barely varies. A learner wallet spending more than one UTxO pays
-0.0016 ADA more per extra input (measured: 0.1834 / 0.1849 / 0.1865 for one, two and three
-inputs).
+Check the arithmetic yourself: `44 × 633 + 155381 = 183,233` lovelace against 183,541
+charged. Sizes are of the **signed** transaction, so every row reconciles.
+
+`AUTH_BEGIN`'s fee scales with the credential chain, which grows as credentials are issued
+into the registry — 10,110 bytes at the time of publishing. `ATTEST` does not: the payload
+is fixed in shape, which is why the counted fee is stable to four decimal places.
+
+A learner wallet spending more than one UTxO pays 0.0016 ADA more per extra input
+(measured: 0.1834 / 0.1849 / 0.1865 for one, two and three inputs).
 
 ## How it works
 
