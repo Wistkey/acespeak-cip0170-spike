@@ -21,26 +21,32 @@ not: a fee counts only when it is not paid from the applicant's own wallets.
 
 | | Transaction | Fee paid by | Counts as adoption |
 |---|---|---|---|
-| **`ATTEST`** | [`9f84c95d81d3ce33…`](https://preprod.cardanoscan.io/transaction/9f84c95d81d3ce338c3af0aecf2c0c87dc10ad3b75c1d77772cec7b22cd66444) | `learner-demo` — 0.183541 tADA | **Yes** |
+| **`ATTEST`** | [`046c0ce93e03ed6d…`](https://preprod.cardanoscan.io/transaction/046c0ce93e03ed6d6f709d8930f2611943b5d93c202aca6263bd38b9a5ca39dc) | `learner-demo` — 0.183541 tADA | **Yes** |
 | **`AUTH_BEGIN`** | [`123c5d18bb2317fd…`](https://preprod.cardanoscan.io/transaction/123c5d18bb2317fdbdc85eb10e1f862591590c224113936a038835cd1ba7270d) | `acespeak-issuer` — 0.632693 tADA | No, by design |
 
 Verified against live chain data, with no API key:
 
 ```
-$ npm run verify -- 9f84c95d81d3ce338c3af0aecf2c0c87dc10ad3b75c1d77772cec7b22cd66444
-VALID — EABWjePbDoSvZzuuJPeasCNRQQiR3m0j0jLQwqPRBLlb is anchored in ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2 at sequence 4
+$ npm run verify -- 046c0ce93e03ed6d6f709d8930f2611943b5d93c202aca6263bd38b9a5ca39dc
+VALID — EDecNwxqIqXMxbujZxf0KUxbOQAzNi3uhinI_AO0UsOU is anchored in ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2 at sequence 6
 ```
 
 **The independence is checkable on chain.** Every input to every `learner-demo`
 transaction traces to the testnet faucet; `acespeak-issuer` never appears as an input, so
 no value has ever flowed between the two wallets.
 
-**A genuine INVALID example:** [`f690640a6a77a179…`](https://preprod.cardanoscan.io/transaction/f690640a6a77a17926a0f0ca272870f486c90cbabe7f07035c42e3de574d4de1) is an earlier attestation of ours
-that does **not** verify. Its payload was digested in one key order, but JSON indexer APIs
-return metadata keys in another, so the digest cannot be re-derived by the readers verifiers
-actually use. It is left on chain deliberately: run the verifier against it and it reports
-INVALID with the reason. [`READINESS.md`](READINESS.md) §3.2 has the full account — it is the
-most useful thing this spike found.
+**Two genuine INVALID examples, left on chain deliberately.** Both look well-formed and
+neither can ever verify:
+
+- [`f690640a6a77a179…`](https://preprod.cardanoscan.io/transaction/f690640a6a77a17926a0f0ca272870f486c90cbabe7f07035c42e3de574d4de1) — digested a JSON serialisation in one key order, while indexer
+  APIs return another.
+- [`9f84c95d81d3ce33…`](https://preprod.cardanoscan.io/transaction/9f84c95d81d3ce338c3af0aecf2c0c87dc10ad3b75c1d77772cec7b22cd66444) — digested a canonicalised JSON form. Better, but still not what
+  CIP-0170 settled on.
+
+Both are superseded by the rule this spike's findings prompted: **`d` digests the payload's
+on-chain CBOR bytes.** Run the verifier against either and it reports INVALID with the reason.
+[`READINESS.md`](READINESS.md) §3.2 has the account, and the fix is now in the spec —
+[cardano-foundation/CIPs#1253](https://github.com/cardano-foundation/CIPs/pull/1253).
 
 **Wallets** (see `artifacts/wallets-public.json`) — neither has ever sent funds to the
 other, which is checkable on-chain:
@@ -61,8 +67,9 @@ npm ci
 npm run verify -- <attestTxHash>
 ```
 
-**No API key, no account, no signup.** Transaction data comes from Koios, which serves
-preprod keylessly; the issuer's Key Event Log is committed at `artifacts/issuer-kel.cesr`.
+**No API key, no account, no signup.** The transaction's **raw CBOR** comes from Koios, which
+serves preprod keylessly — CIP-0170 requires digesting on-chain bytes, and forbids recomputing
+`d` from a JSON view; the issuer's Key Event Log is committed at `artifacts/issuer-kel.cesr`.
 No KERIA, no Docker, nothing of ours needs to be reachable. Prints each check and exits
 non-zero on failure. (Set `BLOCKFROST_PROJECT_ID` to read through Blockfrost instead.)
 
@@ -72,14 +79,14 @@ non-zero on failure. (Set `BLOCKFROST_PROJECT_ID` to read through Blockfrost ins
   ✓ ATTEST carries i, d and s
   ✓ CIP version is supported  (1.0)
   ✓ application payload is present  (170170)
-  ✓ application payload re-derives to d  (EABWjePbDoSvZzuuJPeasCNRQQiR3m0j0jLQwqPRBLlb)
-  ✓ KEL parses  (5 events)
+  ✓ payload CBOR digests to d  (EDecNwxqIqXMxbujZxf0KUxbOQAzNi3uhinI_AO0UsOU)
+  ✓ KEL parses  (7 events)
   ✓ KEL chain is intact
   ✓ KEL belongs to the signer  (ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2)
-  ✓ KEL has an event at sequence s  (4)
+  ✓ KEL has an event at sequence s  (6)
   ✓ event at s anchors the digest as a seal
 
-VALID — EABWjePbDoSvZzuuJPeasCNRQQiR3m0j0jLQwqPRBLlb is anchored in ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2 at sequence 4
+VALID — EDecNwxqIqXMxbujZxf0KUxbOQAzNi3uhinI_AO0UsOU is anchored in ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2 at sequence 6
 ```
 
 And the negative case, which matters more:
@@ -96,7 +103,7 @@ but the attestation claims EABWjePbDoSvZzuuJPeasCNRQQiR3m0j0jLQwqPRBLlb — the 
 was altered after issuance
 ```
 
-`npm test` runs 126 tests with no network and no Docker — and CI runs them on a clean
+`npm test` runs 139 tests with no network and no Docker — and CI runs them on a clean
 Ubuntu runner with Node 20, so that claim is checkable rather than asserted.
 
 **Cross-check the committed KEL against a live witness.** The default verifies against
@@ -152,8 +159,10 @@ A learner wallet spending more than one UTxO pays 0.0016 ADA more per extra inpu
 3. **The learner submits the transaction.** Metadata label `170` carries `t/i/d/s/v`; the
    credential itself sits at the sibling application label. The learner's wallet signs and
    pays. AceSpeak's keys are nowhere near it.
-4. **Anyone verifies.** Re-derive the payload's SAID, confirm it equals `d`, find the KEL
-   event at sequence `s`, confirm it anchors that seal.
+4. **Anyone verifies.** Digest the payload's raw CBOR bytes, confirm the result equals `d`,
+   find the KEL event at sequence `s`, confirm it anchors that seal. Note step 2 happens
+   before the transaction exists, so `03-attest.ts` re-checks the built transaction's bytes
+   against the anchor before spending — a KEL anchor cannot be retracted.
 
 Read [`READINESS.md`](READINESS.md) before drawing conclusions: it states exactly what is
 and is not verified, two places where the spec left gaps we had to fill, and the toolchain
@@ -192,6 +201,7 @@ carries the claim. Never move funds between the two wallets.
 | `src/keri/credential.ts` | Speaking Passport payload; refuses to carry personal data. |
 | `src/keri/kel.ts` | CESR stream parser and seal lookup. |
 | `src/cardano/chain.ts` | Keyless preprod reads via Koios. |
+| `src/cardano/cbor.ts` | CIP-0170 digest over on-chain CBOR bytes. |
 | `schema/` | Communication Credential Profile v1 (draft), SAIDified and served by SAID. |
 | `artifacts/` | The evidence: issuer AID, KEL, credential, transactions. |
 

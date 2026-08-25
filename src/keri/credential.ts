@@ -95,9 +95,10 @@ export function buildCredential(claim: SpeakingPassportClaim): SpeakingPassportC
         throw new UnknownCredentialTypeError(claim.credentialType);
     }
 
-    // Canonical key order, matching what Cardano returns. Deriving over any
-    // other order produces a SAID that cannot be re-derived from the on-chain
-    // payload — which is exactly how the first preprod attestation failed.
+    // Canonical key order so the credential's own SAID is stable regardless of
+    // how a caller happened to build the claim. Note this SAID is the
+    // credential's identity only — CIP-0170's `d` is a separate digest, taken
+    // over the payload's on-chain CBOR bytes. See src/cardano/cbor.ts.
     const sad = {
         d: '',
         credentialType: claim.credentialType,

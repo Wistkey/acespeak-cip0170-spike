@@ -120,10 +120,24 @@ Worth keeping in view: under the CBOR rule, **JSON metadata endpoints become unu
 verification** — jsonb destroys key order at write time, so the digest is unrecoverable from
 them however carefully a verifier works. Our public verifier must therefore read raw bytes.
 
-Our fix is to digest a canonical form so the answer cannot depend on the reader:
-`src/keri/canonical.ts` sorts keys by length then bytewise, and both derivation and
-verification canonicalise first. We adopt jsonb's ordering specifically because it is what
-the common APIs already return, which makes the round trip a no-op in practice.
+**Resolved upstream, and implemented.** The CIP author confirmed the omission and merged-track
+PR [cardano-foundation/CIPs#1253](https://github.com/cardano-foundation/CIPs/pull/1253) now
+specifies it: `d` MUST be the digest of the CBOR encoding of the metadatum **value** at the
+application label, byte-identical to the transaction's auxiliary data — not the label/value
+pair, not the whole map, and explicitly never a JSON re-serialisation. We reviewed that PR and
+verified its test vector independently.
+
+This repo implements that rule (`src/cardano/cbor.ts`). The earlier canonical-JSON approach was
+a workaround and has been removed from the verification path; the credential's own SAID still
+uses canonical ordering, but that is the credential's identity and is separate from `d`.
+
+**One hazard the rule creates, which we raised on the PR.** `d` must be anchored in the KEL
+*before* the transaction is built, and a KEL is append-only. If the transaction builder encodes
+the payload even one byte differently from what was digested, the attestation is permanently
+unverifiable and a sequence number has been spent on a bad anchor. Most builders take a
+JSON-ish object and encode it themselves, so the issuer does not directly control the bytes.
+`scripts/03-attest.ts` therefore builds the transaction, extracts the metadatum bytes back out
+of it, and refuses to submit unless they digest to the anchored value.
 
 A consequence worth noting: this puts the credential payload on-chain, so an attestation
 verifies from a transaction hash alone with no off-chain file to fetch. That is why the

@@ -10,7 +10,8 @@ import {
 } from '@lucid-evolution/lucid';
 import { ready } from 'signify-ts';
 import { buildAttest, buildAuthBegin } from '../src/cardano/metadata.ts';
-import { submitMetadata } from '../src/cardano/submit.ts';
+import { buildMetadataTx, submitMetadata } from '../src/cardano/submit.ts';
+import { fromTransactionCbor } from '../src/cardano/cbor.ts';
 import { verifyAttestation } from '../src/verify.ts';
 import { ACESPEAK_METADATA_LABEL } from '../src/config.ts';
 
@@ -83,8 +84,10 @@ describe('ATTEST submission', () => {
         expect(result.fee).toBeGreaterThan(0n);
     });
 
-    test('the submitted metadata verifies as VALID', async () => {
-        // What a reviewer will do with the published hash, minus the network.
+    test('the BUILT transaction verifies as VALID', async () => {
+        // Verify the built transaction's own bytes, not the object handed to the
+        // builder. Verifying the input rather than the output is precisely what
+        // let a broken attestation reach preprod the first time.
         const metadata = buildAttest({
             signerAid: ANCHOR.i,
             digest: ANCHOR.d,
@@ -92,9 +95,13 @@ describe('ATTEST submission', () => {
             appLabel: ACESPEAK_METADATA_LABEL,
             appData: CREDENTIAL,
         });
-        await submitAndSettle(metadata);
+        const built = await buildMetadataTx(lucid, metadata);
 
-        const result = verifyAttestation({ metadata, kel: KEL, expectedAid: ANCHOR.i });
+        const result = verifyAttestation({
+            source: fromTransactionCbor(built.cborHex),
+            kel: KEL,
+            expectedAid: ANCHOR.i,
+        });
 
         expect(result.reason).toBeUndefined();
         expect(result.valid).toBe(true);

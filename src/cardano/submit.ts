@@ -45,6 +45,50 @@ export interface SubmitResult {
     payer: string;
 }
 
+export interface BuiltTransaction {
+    /** The signed transaction's CBOR, for inspecting the bytes before submitting. */
+    cborHex: string;
+    fee: bigint;
+    payer: string;
+    submit(): Promise<SubmitResult>;
+}
+
+/**
+ * Build and sign a metadata transaction WITHOUT submitting it.
+ *
+ * Separated from submission so callers can digest the metadatum bytes the
+ * builder actually emitted and compare them against what was anchored, while
+ * backing out is still free. See scripts/03-attest.ts.
+ */
+export async function buildMetadataTx(
+    lucid: LucidEvolution,
+    metadata: Record<string, unknown>
+): Promise<BuiltTransaction> {
+    assertMetadataValid(metadata);
+
+    if (metadata[String(CIP0170_LABEL)] === undefined) {
+        throw new Error(`metadata has no CIP-0170 body at label ${CIP0170_LABEL}`);
+    }
+
+    const payer = await lucid.wallet().address();
+
+    let tx = lucid.newTx();
+    for (const [label, value] of Object.entries(metadata)) {
+        tx = tx.attachMetadata(Number(label), value as never);
+    }
+
+    const completed = await tx.complete();
+    const fee = completed.toTransaction().body().fee();
+    const signed = await completed.sign.withWallet().complete();
+
+    return {
+        cborHex: signed.toCBOR(),
+        fee,
+        payer,
+        submit: async () => ({ txHash: await signed.submit(), fee, payer }),
+    };
+}
+
 /**
  * Attach a CIP-0170 metadata object to a self-payment and submit it.
  *

@@ -12,6 +12,7 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { connect, fetchKelFromWitness, ISSUER_ALIAS } from '../src/keri/client.ts';
 import { buildCredential, opaqueHolderRef } from '../src/keri/credential.ts';
+import { digestMetadatum, metadatumBytes } from '../src/cardano/cbor.ts';
 import { findEventBySequence, hasDigestSeal, parseKel, verifyKelLinkage } from '../src/keri/kel.ts';
 import { HOLDER_REF_SALT } from '../src/config.ts';
 import { loadEnv, required } from '../src/env.ts';
@@ -34,9 +35,19 @@ async function main(): Promise<void> {
         evidenceDigest: opaqueHolderRef('demo-assessment-record-0001', HOLDER_REF_SALT),
     });
 
-    console.log(`Anchoring credential ${credential.d} in ${aid}...`);
+    // CIP-0170 digests the CBOR bytes of the metadatum value as they appear on
+    // chain -- not the credential's own SAID, and not any JSON form. The payload
+    // does not depend on the attestation digest, so it can be encoded and
+    // digested before the transaction exists. scripts/03-attest.ts re-checks the
+    // built transaction against this value before spending anything, because a
+    // KEL anchor is permanent and cannot be retracted if they disagree.
+    const payloadBytes = metadatumBytes(credential);
+    const attestDigest = digestMetadatum(payloadBytes);
 
-    const result = await client.identifiers().interact(ISSUER_ALIAS, { d: credential.d });
+    console.log(`Credential SAID    ${credential.d}`);
+    console.log(`Anchoring CBOR digest ${attestDigest} (${payloadBytes.length} bytes) in ${aid}...`);
+
+    const result = await client.identifiers().interact(ISSUER_ALIAS, { d: attestDigest });
     await client.operations().wait(await result.op());
 
     // Read the sequence number back off the witness-served KEL rather than
@@ -47,14 +58,14 @@ async function main(): Promise<void> {
     const linkage = verifyKelLinkage(events);
     if (!linkage.ok) throw new Error(`issuer KEL failed linkage verification: ${linkage.reason}`);
 
-    const anchoring = events.find((e) => hasDigestSeal(e, credential.d));
+    const anchoring = events.find((e) => hasDigestSeal(e, attestDigest));
     if (anchoring === undefined) {
-        throw new Error(`no event in the KEL anchors ${credential.d}`);
+        throw new Error(`no event in the KEL anchors ${attestDigest}`);
     }
 
     // Belt and braces: prove the lookup a verifier performs actually resolves.
     const found = findEventBySequence(events, anchoring.s);
-    if (found === undefined || !hasDigestSeal(found, credential.d)) {
+    if (found === undefined || !hasDigestSeal(found, attestDigest)) {
         throw new Error(`seal is not retrievable at sequence ${anchoring.s}`);
     }
 
@@ -62,11 +73,23 @@ async function main(): Promise<void> {
     writeFileSync(resolve(ARTIFACTS, 'credential.json'), JSON.stringify(credential, null, 2) + '\n');
     writeFileSync(
         resolve(ARTIFACTS, 'anchor.json'),
-        JSON.stringify({ i: aid, d: credential.d, s: anchoring.s, eventDigest: anchoring.d }, null, 2) + '\n'
+        JSON.stringify(
+            {
+                i: aid,
+                d: attestDigest,
+                s: anchoring.s,
+                eventDigest: anchoring.d,
+                credentialSaid: credential.d,
+                payloadBytes: payloadBytes.length,
+                note: 'd is the Blake3-256 digest of the CBOR encoding of the metadatum value, per CIP-0170 Digest computation.',
+            },
+            null,
+            2
+        ) + '\n'
     );
 
     console.log('');
-    console.log(`  digest (d)   ${credential.d}`);
+    console.log(`  digest (d)   ${attestDigest}`);
     console.log(`  sequence (s) ${anchoring.s}  (event ${parseInt(anchoring.s, 16)} of the KEL)`);
     console.log(`  KEL          ${events.length} key events, linkage OK`);
 }

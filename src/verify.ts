@@ -11,9 +11,14 @@
  *
  * WHAT THIS VERIFIES
  *   - the transaction carries a well-formed CIP-0170 ATTEST at label 170
- *   - the application payload's SAID re-derives to the attested digest `d`
+ *   - the CBOR bytes of the application payload digest to the attested `d`
  *   - the KEL is internally consistent and belongs to `i`
  *   - the event at sequence `s` anchors `{ d }` as a seal
+ *
+ * It works from raw metadatum bytes, never a JSON view. CIP-0170 forbids
+ * recomputing `d` from JSON, because indexers normalise map key order at write
+ * time and destroy the information the digest depends on. The API takes a
+ * MetadatumSource precisely so there is no way to pass JSON in by mistake.
  *
  * WHAT THIS DOES NOT VERIFY
  *   - the controller's signatures on the KEL events (see READINESS.md)
@@ -26,10 +31,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ready, Saider } from 'signify-ts';
+import { ready } from 'signify-ts';
 import { CIP0170_LABEL, CIP_VERSION } from './cardano/metadata.ts';
+import { decodeMetadatum, digestMetadatum, type MetadatumSource } from './cardano/cbor.ts';
 import { findEventBySequence, hasDigestSeal, parseKel, verifyKelLinkage } from './keri/kel.ts';
-import { canonicalise } from './keri/canonical.ts';
 
 export interface Check {
     name: string;
@@ -46,8 +51,8 @@ export interface VerificationResult {
 }
 
 export interface VerifyOptions {
-    /** The transaction's full metadata object, keyed by label. */
-    metadata: unknown;
+    /** Raw metadatum bytes, keyed by label. Never a JSON representation. */
+    source: MetadatumSource;
     /** The issuer's KEL as a CESR stream. */
     kel: string;
     /** Optionally require the attestation to carry a particular AID. */
@@ -66,30 +71,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-/**
- * Re-derive the SAID of an application payload.
- *
- * CIP-0170 says `d` is "the digest of the data being signed" without fixing a
- * canonical serialisation. Making the payload self-addressing removes the
- * ambiguity: the digest is derived by KERI's own SAID algorithm, so a verifier
- * and an issuer independently arrive at the same value with no convention to
- * agree on. See READINESS.md.
- */
-function rederiveSaid(payload: Record<string, unknown>): string | undefined {
-    try {
-        // Canonicalise first: the chain returns map keys in CBOR canonical
-        // order, not the order they were submitted in, and the SAID is a digest
-        // over a serialisation. Without this a perfectly untouched payload
-        // fails to re-derive. See src/keri/canonical.ts.
-        const [, saidified] = Saider.saidify(canonicalise({ ...payload, d: '' }));
-        return (saidified as { d?: string }).d;
-    } catch {
-        return undefined;
-    }
-}
-
 export function verifyAttestation(options: VerifyOptions): VerificationResult {
-    const { metadata, kel, expectedAid } = options;
+    const { source, kel, expectedAid } = options;
     const checks: Check[] = [];
 
     const fail = (reason: string): VerificationResult => ({ valid: false, reason, checks });
@@ -100,12 +83,22 @@ export function verifyAttestation(options: VerifyOptions): VerificationResult {
     };
 
     // ---- 1. The transaction carries a CIP-0170 ATTEST ----------------------
-    if (!isRecord(metadata)) return fail('transaction metadata is not an object');
-
-    const body = metadata[String(CIP0170_LABEL)];
-    if (!isRecord(body)) {
+    const cipBytes = source.bytes(CIP0170_LABEL);
+    if (cipBytes === undefined) {
         add('metadata carries label 170', false);
         return fail(`transaction has no CIP-0170 metadata at label ${CIP0170_LABEL}`);
+    }
+
+    let body: unknown;
+    try {
+        body = decodeMetadatum(cipBytes);
+    } catch {
+        add('metadata carries label 170', false);
+        return fail('CIP-0170 metadatum at label 170 could not be decoded');
+    }
+    if (!isRecord(body)) {
+        add('metadata carries label 170', false);
+        return fail('CIP-0170 metadatum at label 170 is not a map');
     }
     add('metadata carries label 170', true);
 
@@ -138,31 +131,32 @@ export function verifyAttestation(options: VerifyOptions): VerificationResult {
         }
     }
 
-    // ---- 2. The application payload re-derives to the attested digest ------
-    const appEntries = Object.entries(metadata).filter(([label]) => label !== String(CIP0170_LABEL));
+    // ---- 2. The application payload's CBOR bytes digest to `d` -------------
+    const appLabels = source.labels().filter((label) => label !== CIP0170_LABEL);
 
-    if (appEntries.length === 0) {
+    if (appLabels.length === 0) {
         add('application payload is present', false);
         return { valid: false, reason: 'attestation has no application payload beside label 170', checks, attestation };
     }
-    add('application payload is present', true, appEntries[0]![0]);
-
-    const payload = appEntries[0]![1];
-    if (!isRecord(payload)) {
-        add('application payload re-derives to d', false);
+    if (appLabels.length > 1) {
+        add('application payload is present', false, appLabels.join(', '));
         return {
             valid: false,
-            reason: 'application payload is not an object, so its SAID cannot be re-derived',
+            reason: `transaction carries ${appLabels.length} application labels (${appLabels.join(', ')}); CIP-0170 requires the attested label to be unambiguous`,
             checks,
             attestation,
         };
     }
+    const appLabel = appLabels[0]!;
+    add('application payload is present', true, String(appLabel));
 
-    const rederived = rederiveSaid(payload);
-    if (!add('application payload re-derives to d', rederived === d, rederived)) {
+    // Digest the bytes as they exist in the transaction. Re-serialising from a
+    // decoded value would reintroduce exactly the ambiguity the spec closed.
+    const computed = digestMetadatum(source.bytes(appLabel)!);
+    if (!add('payload CBOR digests to d', computed === d, computed)) {
         return {
             valid: false,
-            reason: `application payload digest is ${String(rederived)}, but the attestation claims ${d} — the payload was altered after issuance`,
+            reason: `application payload digests to ${computed}, but the attestation claims ${d} — the payload is not the data that was attested`,
             checks,
             attestation,
         };
@@ -237,8 +231,12 @@ Options:
   --aid <aid>     Require the attestation to carry this identifier
   --json          Emit the result as JSON
 
-The default reads the committed KEL, so verification works offline and with no
-KERIA running. --oobi proves the same result against a live resolution.
+Transaction bytes come from Koios with no API key. The default reads the
+committed KEL, so verification needs no KERIA running; --oobi proves the same
+result against a live witness resolution.
+
+The digest is computed from the transaction's raw CBOR, never a JSON view --
+see CIP-0170 "Digest computation".
 `;
 
 function parseArgs(argv: string[]): { txHash?: string; options: Record<string, string | boolean> } {
@@ -269,8 +267,9 @@ async function main(): Promise<void> {
     await ready();
 
     // Imported lazily so the pure verifier stays free of any network code.
-    const { fetchTransactionMetadata } = await import('./cardano/chain.ts');
-    const metadata = await fetchTransactionMetadata(txHash);
+    const { fetchTransactionCbor } = await import('./cardano/chain.ts');
+    const { fromTransactionCbor } = await import('./cardano/cbor.ts');
+    const source = fromTransactionCbor(await fetchTransactionCbor(txHash));
 
     const kel =
         typeof options.oobi === 'string'
@@ -283,7 +282,7 @@ async function main(): Promise<void> {
               );
 
     const result = verifyAttestation({
-        metadata,
+        source,
         kel,
         expectedAid: typeof options.aid === 'string' ? options.aid : undefined,
     });

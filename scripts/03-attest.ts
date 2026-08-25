@@ -16,8 +16,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ready } from 'signify-ts';
 import { buildAttest } from '../src/cardano/metadata.ts';
-import { connectWallet, submitMetadata } from '../src/cardano/submit.ts';
+import { buildMetadataTx, connectWallet } from '../src/cardano/submit.ts';
 import { verifyAttestation } from '../src/verify.ts';
+import { digestMetadatum, extractMetadatumBytes, fromTransactionCbor } from '../src/cardano/cbor.ts';
 import { ACESPEAK_METADATA_LABEL, CARDANOSCAN_TX } from '../src/config.ts';
 import { loadEnv } from '../src/env.ts';
 
@@ -44,16 +45,38 @@ async function main(): Promise<void> {
         appData: credential,
     });
 
-    // Verify before spending. If this fails, submitting would put a permanently
-    // invalid attestation on-chain under AceSpeak's identifier.
-    const preflight = verifyAttestation({ metadata, kel, expectedAid: anchor.i });
+    const lucid = await connectWallet('learner');
+
+    // Build first, then verify the BUILT transaction rather than the object we
+    // handed the builder. `d` is a digest over the bytes the builder emits, and
+    // the KEL anchor committing to that digest already exists and cannot be
+    // retracted -- so if the builder encodes even one byte differently, this is
+    // the last moment the mistake is free. (Raised upstream as a SHOULD on
+    // cardano-foundation/CIPs#1253.)
+    const built = await buildMetadataTx(lucid, metadata);
+
+    const onChainBytes = extractMetadatumBytes(built.cborHex, ACESPEAK_METADATA_LABEL);
+    const onChainDigest = digestMetadatum(onChainBytes);
+    if (onChainDigest !== anchor.d) {
+        throw new Error(
+            `the built transaction's payload digests to ${onChainDigest}, but ${anchor.d} is anchored in the KEL. ` +
+                'The transaction builder encoded the payload differently from what was digested; submitting would ' +
+                'create a permanently unverifiable attestation.'
+        );
+    }
+    console.log(`Built transaction payload digests to ${onChainDigest} — matches the KEL anchor.`);
+
+    const preflight = verifyAttestation({
+        source: fromTransactionCbor(built.cborHex),
+        kel,
+        expectedAid: anchor.i,
+    });
     if (!preflight.valid) {
         throw new Error(`refusing to submit an attestation that does not verify: ${preflight.reason}`);
     }
     console.log('Pre-flight verification passed. Submitting from learner-demo...');
 
-    const lucid = await connectWallet('learner');
-    const { txHash, fee, payer } = await submitMetadata(lucid, metadata);
+    const { txHash, fee, payer } = await built.submit();
 
     writeFileSync(
         artifact('attest.json'),

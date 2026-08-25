@@ -63,7 +63,44 @@ async function fetchViaBlockfrost(txHash: string, projectId: string): Promise<Re
     return Object.fromEntries(entries.map((e) => [e.label, e.json_metadata]));
 }
 
-/** Fetch a transaction's metadata, keyed by label. Keyless unless a Blockfrost key is set. */
+/**
+ * Fetch a transaction's raw CBOR.
+ *
+ * This is the authoritative source for CIP-0170 verification: `d` is a digest
+ * over on-chain bytes, and JSON metadata endpoints cannot reproduce them
+ * because indexers normalise map key order at write time.
+ */
+export async function fetchTransactionCbor(txHash: string): Promise<string> {
+    const projectId = optional('BLOCKFROST_PROJECT_ID', '');
+
+    if (projectId === '') {
+        const response = await fetch(`${KOIOS_PREPROD}/tx_cbor`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ _tx_hashes: [txHash] }),
+        });
+        if (!response.ok) throw new Error(`Koios returned ${response.status} for ${txHash}`);
+
+        const rows = (await response.json()) as Array<{ cbor?: string }>;
+        if (rows.length === 0 || !rows[0]?.cbor) throw new TransactionNotFoundError(txHash);
+        return rows[0].cbor;
+    }
+
+    const response = await fetch(`${BLOCKFROST_PREPROD}/txs/${txHash}/cbor`, {
+        headers: { project_id: projectId },
+    });
+    if (response.status === 404) throw new TransactionNotFoundError(txHash);
+    if (!response.ok) throw new Error(`Blockfrost returned ${response.status} for ${txHash}`);
+
+    return ((await response.json()) as { cbor: string }).cbor;
+}
+
+/**
+ * Fetch a transaction's metadata as JSON, keyed by label.
+ *
+ * NOT suitable for computing `d` — see {@link fetchTransactionCbor}. Kept for
+ * inspection and debugging only.
+ */
 export async function fetchTransactionMetadata(txHash: string): Promise<Record<string, unknown>> {
     const projectId = optional('BLOCKFROST_PROJECT_ID', '');
 

@@ -8,7 +8,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ready } from 'signify-ts';
-import { buildAttest } from '../src/cardano/metadata.ts';
+import { buildAttest, CIP0170_LABEL } from '../src/cardano/metadata.ts';
+import { fromMetadatumBytes, metadatumBytes } from '../src/cardano/cbor.ts';
 import { verifyAttestation } from '../src/verify.ts';
 import { ACESPEAK_METADATA_LABEL } from '../src/config.ts';
 
@@ -28,13 +29,18 @@ async function main(): Promise<void> {
     console.log(`  altered:  credentialType = ${tampered.credentialType}`);
     console.log('');
 
+    const body = (buildAttest({
+        signerAid: anchor.i,
+        digest: anchor.d,
+        sequenceNumber: anchor.s,
+        appLabel: ACESPEAK_METADATA_LABEL,
+        appData: tampered,
+    }) as Record<string, unknown>)[String(CIP0170_LABEL)];
+
     const result = verifyAttestation({
-        metadata: buildAttest({
-            signerAid: anchor.i,
-            digest: anchor.d,
-            sequenceNumber: anchor.s,
-            appLabel: ACESPEAK_METADATA_LABEL,
-            appData: tampered,
+        source: fromMetadatumBytes({
+            [CIP0170_LABEL]: metadatumBytes(body),
+            [ACESPEAK_METADATA_LABEL]: metadatumBytes(tampered),
         }),
         kel,
     });
