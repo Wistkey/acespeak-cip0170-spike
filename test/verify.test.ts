@@ -180,6 +180,30 @@ describe('verifyAttestation rejects malformed metadata', () => {
         expect(result.reason).toMatch(/version/i);
     });
 
+    test('reads an ATTEST without v as version 1.0, as CIP-0170 1.1 specifies', () => {
+        const body = attestBody();
+        delete body.v;
+
+        const result = verifyAttestation({ source: sourceFrom(body, CREDENTIAL), kel: KEL });
+
+        expect(result.valid).toBe(true);
+        expect(result.checks.find((c) => c.name === 'CIP version is supported')?.detail).toBe('1.0 (v absent)');
+    });
+
+    test('rejects a malformed v rather than reading it as absent', () => {
+        const result = verifyAttestation({ source: sourceFrom(attestBody({ v: '1.0' }), CREDENTIAL), kel: KEL });
+
+        expect(result.valid).toBe(false);
+        expect(result.reason).toMatch(/version/i);
+    });
+
+    test('rejects a 1.1 ATTEST, whose anchor may be a metadata seal this verifier cannot check', () => {
+        const result = verifyAttestation({ source: sourceFrom(attestBody({ v: { v: '1.1' } }), CREDENTIAL), kel: KEL });
+
+        expect(result.valid).toBe(false);
+        expect(result.reason).toMatch(/version "1\.1"/);
+    });
+
     test('rejects an attestation whose application payload is missing', () => {
         const result = verifyAttestation({
             source: fromMetadatumBytes({ [CIP0170_LABEL]: metadatumBytes(attestBody()) }),

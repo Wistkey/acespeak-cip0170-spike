@@ -118,8 +118,13 @@ export function verifyAttestation(options: VerifyOptions): VerificationResult {
     }
     add('ATTEST carries i, d and s', true);
 
-    const version = isRecord(attest.v) ? attest.v.v : undefined;
-    if (!add('CIP version is supported', version === CIP_VERSION, String(version))) {
+    // CIP-0170 1.1 (CIPs#1287): an ATTEST without `v` is version 1.0. A `v` that is
+    // present but malformed is not read as absent. 1.1 records stay unsupported: their
+    // anchor may be a metadata seal, which this verifier does not compute.
+    const absent = attest.v === undefined;
+    const version = absent ? CIP_VERSION : isRecord(attest.v) ? attest.v.v : undefined;
+    const shown = absent ? `${CIP_VERSION} (v absent)` : String(version);
+    if (!add('CIP version is supported', version === CIP_VERSION, shown)) {
         return fail(`unsupported CIP-0170 version "${String(version)}", expected ${CIP_VERSION}`);
     }
 

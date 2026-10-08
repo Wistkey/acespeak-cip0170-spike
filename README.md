@@ -108,7 +108,7 @@ but the attestation claims EABWjePbDoSvZzuuJPeasCNRQQiR3m0j0jLQwqPRBLlb — the 
 was altered after issuance
 ```
 
-`npm test` runs 139 tests with no network and no Docker — and CI runs them on a clean
+`npm test` runs 144 tests with no network and no Docker — and CI runs them on a clean
 Ubuntu runner with Node 20, so that claim is checkable rather than asserted.
 
 **Cross-check the committed KEL against a live witness.** The default verifies against
