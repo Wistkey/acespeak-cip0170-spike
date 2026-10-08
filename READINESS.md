@@ -41,8 +41,8 @@ described.
 
 ## 3. Gaps in the spec we had to fill
 
-Two places where CIP-0170 does not say enough to build against. We picked an approach and
-documented it; both are worth raising with the CIP authors.
+Places where CIP-0170 does not say enough to build against, or contradicts itself. We picked
+an approach and documented it; each is worth raising with the CIP authors.
 
 ### 3.1 Metadata strings are capped at 64 bytes; the spec shows one byte-stream
 
@@ -144,7 +144,40 @@ verifies from a transaction hash alone with no off-chain file to fetch. That is 
 payload is minimal and non-identifying, and why `buildCredential()` refuses to build one
 carrying a name, email, transcript or score rather than trusting a review checklist.
 
-### 3.3 What an emulator will not tell you
+### 3.3 The published schemas reject records that follow the README
+
+CIP-0170 ships a CDDL (`version_1.cddl`) and a JSON schema (`version_1.json`) next to the
+README. They disagree with the README in two ways, and either one is enough to make a
+schema-validating indexer reject our attestation. We checked this while reviewing
+[cardano-foundation/CIPs#1287](https://github.com/cardano-foundation/CIPs/pull/1287) (version
+1.1, which adds `ATTEST_TX` and `CLAIM_TX`). We ran ajv against that PR's `version_1.json`
+(head `38a085c`) and on-chain metadata fetched from Koios.
+
+**`v` is required by the README and forbidden by the schemas.** The README requires `v` on
+`ATTEST`, and `v`/`k`/`a` on `AUTH_BEGIN` and `AUTH_END`. The JSON schema gives those record
+types `additionalProperties: false` and no `v`, and the CDDL has no `v` either. Our preprod
+`ATTEST` [`046c0ce9…`](https://preprod.cardanoscan.io/transaction/046c0ce93e03ed6d6f709d8930f2611943b5d93c202aca6263bd38b9a5ca39dc)
+carries `v: {v: "1.0"}` as the README asks, and fails with `must NOT have additional
+properties (v)`. The same record without `v` passes. #1287 adds a `cip_version` type, but only
+to the two new record types.
+
+**Every numeric label must be a CIP-0170 record.** The JSON schema applies the record `oneOf`
+to every key matching `^[0-9]+$`, and the CDDL is `{ ? uint => auth_event }`: any label, at
+most one entry. But an `ATTEST` always has its payload under a second label (ours is
+`170170`), so a valid `ATTEST` transaction can never pass: validation fails at `/170170`. The
+`ATTEST_TX` example in #1287 fails the same way at `/1447`. The fix is to tie the rules to
+label `170` only (`{ 170 => auth_event, * uint => any }`).
+
+Smaller: `c` is `bytes` in the CDDL and `string` in the JSON schema. We store it as an array of
+strings anyway (§3.1), which matches neither.
+
+**Where we stand.** We follow the README, which is the normative text. Our verifier does not
+validate against `version_1.json`, so these mismatches don't affect it. They would affect any
+third-party indexer that does validate. We raised both mismatches in a review on #1287
+(2026-10-08), alongside a note that `ATTEST_TX` allows only one signer per transaction. Once the
+schemas are updated, re-run the same ajv check against `046c0ce9…` before relying on them.
+
+### 3.4 What an emulator will not tell you
 
 The submission path was rehearsed against an emulator before spending any real ADA, and
 that rehearsal passed while the bug above was present. It verified the metadata object the
