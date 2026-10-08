@@ -94,7 +94,10 @@ async function measure(
     return {
         event,
         counts,
-        metadataBytes: JSON.stringify(metadata).length,
+        // JSON length, with byte strings in the 0x-hex form CIP-0170's JSON schema uses.
+        metadataBytes: JSON.stringify(metadata, (_, v: unknown) =>
+            v instanceof Uint8Array ? `0x${Buffer.from(v).toString('hex')}` : v
+        ).length,
         txBytes: signed.toCBOR().length / 2, // hex-encoded
         feeLovelace,
         feeAda: feeLovelace / 1_000_000,

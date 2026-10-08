@@ -13,12 +13,19 @@
  *
  *   npx tsx scripts/04-auth-begin.ts --dry-run   # build the chain, submit nothing
  *   npm run auth-begin                           # build and submit
+ *   npm run auth-begin -- --reuse-chain          # republish the committed chain, no KERIA
+ *
+ * --reuse-chain republishes artifacts/auth-begin-chain.cesr for the credential
+ * recorded in artifacts/auth-begin.json, instead of issuing a new credential. It
+ * exists because CIP-0170 1.1 fixed how `c` is encoded (byte strings, not text),
+ * and the right fix for an existing chain is to publish it again, not to mint a
+ * second credential.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ready } from 'signify-ts';
 import { buildAuthBegin, chunk64 } from '../src/cardano/metadata.ts';
-import { connectWallet, submitMetadata } from '../src/cardano/submit.ts';
+import { buildMetadataTx, connectWallet } from '../src/cardano/submit.ts';
 import { connect, ISSUER_ALIAS } from '../src/keri/client.ts';
 import { ACESPEAK_METADATA_LABEL, CARDANOSCAN_TX } from '../src/config.ts';
 import { loadEnv, optional, required } from '../src/env.ts';
@@ -29,12 +36,39 @@ const REGISTRY = 'acespeak-credentials';
 /** Cardano rejects transactions above this size; metadata competes with everything else in it. */
 const TX_SIZE_LIMIT = 16384;
 
-async function main(): Promise<void> {
-    loadEnv();
-    await ready();
+interface IssuedChain {
+    aid: string;
+    schemaSaid: string;
+    credentialSaid: string;
+    registryId: string;
+    chain: string;
+}
 
-    const dryRun = process.argv.includes('--dry-run');
+interface PublishedAuthBegin {
+    txHash: string;
+    signerAid: string;
+    schemaSaid: string;
+    credentialSaid: string;
+    registryId: string;
+}
 
+/** The chain already published, read back from the committed artifacts. */
+function committedChain(): IssuedChain {
+    const published = JSON.parse(
+        readFileSync(resolve(ARTIFACTS, 'auth-begin.json'), 'utf8')
+    ) as PublishedAuthBegin;
+
+    return {
+        aid: published.signerAid,
+        schemaSaid: published.schemaSaid,
+        credentialSaid: published.credentialSaid,
+        registryId: published.registryId,
+        chain: readFileSync(resolve(ARTIFACTS, 'auth-begin-chain.cesr'), 'utf8'),
+    };
+}
+
+/** Issue a fresh authority credential through KERIA and return its chain. */
+async function issueChain(): Promise<IssuedChain> {
     const schema = JSON.parse(
         readFileSync(resolve(process.cwd(), 'schema/communication-credential-profile.v1.json'), 'utf8')
     ) as { $id: string };
@@ -93,6 +127,32 @@ async function main(): Promise<void> {
     const credentialSaid = issued.acdc.sad.d as string;
     const chain = await client.credentials().get(credentialSaid, true);
 
+    return {
+        aid,
+        schemaSaid,
+        credentialSaid,
+        registryId,
+        chain: typeof chain === 'string' ? chain : JSON.stringify(chain),
+    };
+}
+
+async function main(): Promise<void> {
+    loadEnv();
+    await ready();
+
+    const dryRun = process.argv.includes('--dry-run');
+    const reuse = process.argv.includes('--reuse-chain');
+
+    const previous =
+        reuse && existsSync(resolve(ARTIFACTS, 'auth-begin.json'))
+            ? (JSON.parse(readFileSync(resolve(ARTIFACTS, 'auth-begin.json'), 'utf8')) as PublishedAuthBegin)
+            : undefined;
+    if (reuse && previous === undefined) {
+        throw new Error('--reuse-chain needs artifacts/auth-begin.json from an earlier run');
+    }
+
+    const { aid, schemaSaid, credentialSaid, registryId, chain } = reuse ? committedChain() : await issueChain();
+
     const metadata = buildAuthBegin({
         signerAid: aid,
         schemaSaid,
@@ -100,14 +160,20 @@ async function main(): Promise<void> {
         extra: { l: [ACESPEAK_METADATA_LABEL] },
     });
 
-    const chunks = chunk64(chain);
-    const encoded = JSON.stringify(metadata).length;
+    const chainBytes = new TextEncoder().encode(chain);
+    const chunks = chunk64(chainBytes);
+
+    // Build and sign before deciding anything, so the size reported is the real
+    // transaction's and not an estimate. Nothing is submitted until submit().
+    const lucid = await connectWallet('issuer');
+    const built = await buildMetadataTx(lucid, metadata);
+    const encoded = built.cborHex.length / 2;
 
     console.log('');
     console.log(`  credential   ${credentialSaid}`);
     console.log(`  registry     ${registryId}`);
-    console.log(`  chain        ${chain.length} bytes -> ${chunks.length} chunks of <=64 bytes`);
-    console.log(`  metadata     ${encoded} bytes encoded (transaction limit ${TX_SIZE_LIMIT})`);
+    console.log(`  chain        ${chainBytes.length} bytes -> ${chunks.length} byte-string chunks of <=64 bytes`);
+    console.log(`  transaction  ${encoded} bytes signed (limit ${TX_SIZE_LIMIT})`);
 
     if (encoded > TX_SIZE_LIMIT) {
         console.log('');
@@ -115,10 +181,7 @@ async function main(): Promise<void> {
         console.log('  finding, not a bug — see READINESS.md.');
     }
 
-    writeFileSync(
-        resolve(ARTIFACTS, 'auth-begin-chain.cesr'),
-        typeof chain === 'string' ? chain : JSON.stringify(chain)
-    );
+    if (!reuse) writeFileSync(resolve(ARTIFACTS, 'auth-begin-chain.cesr'), chain);
 
     if (dryRun) {
         console.log('');
@@ -126,8 +189,7 @@ async function main(): Promise<void> {
         return;
     }
 
-    const lucid = await connectWallet('issuer');
-    const { txHash, fee, payer } = await submitMetadata(lucid, metadata);
+    const { txHash, fee, payer } = await built.submit();
 
     writeFileSync(
         resolve(ARTIFACTS, 'auth-begin.json'),
@@ -141,8 +203,15 @@ async function main(): Promise<void> {
                 schemaSaid,
                 credentialSaid,
                 registryId,
-                chainBytes: chain.length,
+                chainBytes: chainBytes.length,
                 chainChunks: chunks.length,
+                chainEncoding: 'byte strings (CIP-0170 1.1)',
+                ...(previous !== undefined && {
+                    supersedes: {
+                        txHash: previous.txHash,
+                        reason: 'Published `c` as text chunks; CIP-0170 1.1 requires byte strings. Same credential, same chain.',
+                    },
+                }),
                 feePaidBy: payer,
                 feeLovelace: fee.toString(),
                 note: 'Paid by AceSpeak. This is our own setup transaction and is deliberately excluded from any adoption count.',

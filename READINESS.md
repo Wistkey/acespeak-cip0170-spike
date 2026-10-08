@@ -47,18 +47,37 @@ an approach and documented it; each is worth raising with the CIP authors.
 ### 3.1 Metadata strings are capped at 64 bytes; the spec shows one byte-stream
 
 `AUTH_BEGIN` and `AUTH_END` carry `c`, "the byte-stream of the credential chain". Cardano
-rejects any metadata text string over 64 bytes. Our chain is **7,260 bytes** — 114 chunks.
-The CIP defines no chunking convention, so we defined one: **`c` is an ordered array of
-strings, each at most 64 bytes; concatenating them in order reproduces the stream.**
+rejects any metadata string over 64 bytes. Our chain is **10,110 bytes**, which is 158 chunks.
+CIP-0170 1.0 defined no chunking convention, so we defined one: **`c` is an ordered array of
+text strings, each at most 64 bytes; concatenating them in order reproduces the stream.**
 
-`assertMetadataValid()` enforces the limit before submission, with the offending path in
-the error, because Blockfrost's rejection for an oversized node does not obviously point
-at string length.
+**Resolved upstream, with one difference.** CIP-0170 1.1
+([cardano-foundation/CIPs#1287](https://github.com/cardano-foundation/CIPs/pull/1287), commit
+`c0e677d`) specifies the same chunking, but as **byte strings**, not text: `c` is one byte
+string or an ordered list of byte strings of at most 64 bytes each. In the JSON schema these
+are `0x`-prefixed hex. Our published `AUTH_BEGIN`
+[`123c5d18…`](https://preprod.cardanoscan.io/transaction/123c5d18bb2317fdbdc85eb10e1f862591590c224113936a038835cd1ba7270d)
+uses text chunks and fails that schema at `/170/c`. Re-encoding the same chunks as bytes
+passes.
+
+`buildAuthBegin()` now emits byte strings (`chunk64()` splits a `Uint8Array`; the stream is the
+qb64b variant, i.e. the UTF-8 bytes of the CESR text). A test reads the built transaction back
+and checks every chunk of `c` is a CBOR byte string. The transaction size and fee do not
+change, because CBOR byte strings and text strings carry the same length header.
+`npm run auth-begin -- --reuse-chain` republishes the committed chain for the same credential
+in this encoding, without KERIA. We did that on 2026-10-08:
+[`f608a27c…`](https://preprod.cardanoscan.io/transaction/f608a27c51417cee47a546daae747abf2f77f7c1c0722fba24e618bd38846a9a)
+carries the same 158 chunks as byte strings, for the same fee (0.632693 tADA). `123c5d18…`
+cannot be changed, so it stays on chain in the old encoding, superseded.
+
+`assertMetadataValid()` enforces the 64-byte limit on text and byte strings before
+submission, with the offending path in the error, because Blockfrost's rejection for an
+oversized node does not obviously point at string length.
 
 Related: the spec suggests qb2 "for brevity" but ships its example chain in qb64. We use
 qb64. qb2 would be roughly 25% smaller and is worth switching to if a chain ever
-approaches the ~16KB transaction limit. Ours does not — the full `AUTH_BEGIN` metadata
-encodes to 8,221 bytes.
+approaches the ~16KB transaction limit. Ours does not: the signed `AUTH_BEGIN` transaction
+is 10,844 bytes.
 
 ### 3.2 `d` has no canonical serialisation
 
@@ -168,14 +187,30 @@ most one entry. But an `ATTEST` always has its payload under a second label (our
 `ATTEST_TX` example in #1287 fails the same way at `/1447`. The fix is to tie the rules to
 label `170` only (`{ 170 => auth_event, * uint => any }`).
 
-Smaller: `c` is `bytes` in the CDDL and `string` in the JSON schema. We store it as an array of
-strings anyway (§3.1), which matches neither.
+Smaller: `c` is `bytes` in the CDDL and `string` in the JSON schema. We stored it as an array of
+text strings (§3.1), which matched neither.
 
-**Where we stand.** We follow the README, which is the normative text. Our verifier does not
-validate against `version_1.json`, so these mismatches don't affect it. They would affect any
-third-party indexer that does validate. We raised both mismatches in a review on #1287
-(2026-10-08), alongside a note that `ATTEST_TX` allows only one signer per transaction. Once the
-schemas are updated, re-run the same ajv check against `046c0ce9…` before relying on them.
+**Resolved upstream.** We raised both mismatches in a review on #1287 (2026-10-08), alongside a
+note that `ATTEST_TX` allowed only one signer per transaction. The author fixed all three the
+same day in commit `c0e677d`:
+- `v` is optional on the 1.0 record types, and a record without it reads as 1.0.
+- The schemas constrain label `170` only.
+- `i` in `ATTEST_TX` may be a list of signers.
+- `c` is byte strings in both schemas, chunked as described in §3.1.
+
+Re-running the same check against `c0e677d`: our `ATTEST` `046c0ce9…` (with `v` and its
+`170170` payload) **passes**, and so does the PR's `ATTEST_TX` example. Our `AUTH_BEGIN`
+`123c5d18…` **fails** at `/170/c`, because of the text chunks. That was our side to fix (§3.1),
+not the spec's, and the republished `AUTH_BEGIN` `f608a27c…` passes.
+
+A later commit, `946b47d`, adds a *metadata seal* to 1.1. It is an alternative KEL anchor for
+`ATTEST`, for wallets that can anchor only the SAID of a JSON object. It does not affect us: our
+`ATTEST` anchors the raw digest, which stays valid, and our verifier reports a 1.1 record as an
+unsupported version instead of guessing. The results above are unchanged at `946b47d`.
+
+Our verifier still does not validate against `version_1.json`; the schemas matter for
+third-party indexers that do. #1287 is not merged yet, so re-run the check against the final
+version before relying on it.
 
 ### 3.4 What an emulator will not tell you
 

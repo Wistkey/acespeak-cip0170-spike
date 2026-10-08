@@ -114,7 +114,7 @@ describe('buildAuthBegin', () => {
                 t: 'AUTH_BEGIN',
                 s: SPEC_SCHEMA,
                 i: SPEC_AID,
-                c: ['short-chain'],
+                c: [new TextEncoder().encode('short-chain')],
                 v: { v: '1.0', k: 'KERI10', a: 'ACDC10' },
                 m: { l: [SPEC_LABEL], LEI: '50670047U83746F70E20' },
             },
@@ -133,30 +133,27 @@ describe('buildAuthBegin', () => {
 });
 
 describe('chunk64', () => {
-    test('leaves a string that already fits as a single chunk', () => {
-        expect(chunk64('abc')).toEqual(['abc']);
+    test('leaves a stream that already fits as a single chunk', () => {
+        expect(chunk64(new Uint8Array([1, 2, 3]))).toEqual([new Uint8Array([1, 2, 3])]);
     });
 
-    test('splits a 200-character stream into 64-byte chunks', () => {
-        const stream = 'A'.repeat(200);
-        const chunks = chunk64(stream);
+    test('splits a 200-byte stream into 64-byte chunks', () => {
+        const chunks = chunk64(new Uint8Array(200).fill(0x41));
 
-        expect(chunks).toEqual(['A'.repeat(64), 'A'.repeat(64), 'A'.repeat(64), 'A'.repeat(8)]);
+        expect(chunks.map((c) => c.length)).toEqual([64, 64, 64, 8]);
     });
 
-    test('never emits a chunk longer than 64 bytes for multi-byte input', () => {
-        // 'é' is two bytes in UTF-8, so a naive per-character split would emit
-        // 128-byte chunks and the node would be rejected at submission.
-        const chunks = chunk64('é'.repeat(100));
-
-        for (const c of chunks) {
-            expect(new TextEncoder().encode(c).length).toBeLessThanOrEqual(64);
+    test('emits byte strings, so the chain lands on chain as CBOR bytes', () => {
+        // CIP-0170 1.1 (CIPs#1287): `c` is a list of byte strings of at most 64
+        // bytes. Lucid encodes a Uint8Array as a byte string and a JS string as text.
+        for (const c of chunk64(new Uint8Array(150))) {
+            expect(c).toBeInstanceOf(Uint8Array);
         }
     });
 
     test('round-trips through unchunk64', () => {
-        const stream = 'x'.repeat(150) + 'é'.repeat(30);
-        expect(unchunk64(chunk64(stream))).toBe(stream);
+        const stream = new Uint8Array(150).map((_, i) => i);
+        expect(unchunk64(chunk64(stream))).toEqual(stream);
     });
 });
 
@@ -220,5 +217,12 @@ describe('assertMetadataValid', () => {
         });
 
         expect(() => assertMetadataValid(md)).not.toThrow();
+    });
+
+    test('rejects an over-long byte string, with its path', () => {
+        const md = { '170': { c: [new Uint8Array(64), new Uint8Array(65)] } };
+
+        expect(() => assertMetadataValid(md)).toThrow(MetadataStringTooLongError);
+        expect(() => assertMetadataValid(md)).toThrow(/170\.c\[1\]/);
     });
 });

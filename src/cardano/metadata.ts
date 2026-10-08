@@ -6,10 +6,11 @@
  * Two things the spec leaves open that this module has to decide. Both are
  * written up in READINESS.md rather than buried here:
  *
- *  1. Cardano caps every metadata text string at 64 bytes, but CIP-0170 shows
+ *  1. Cardano caps every metadata string at 64 bytes, but CIP-0170 1.0 showed
  *     the credential chain `c` as one `{{byteStream}}`. A real chain is far
- *     longer than 64 bytes, so it has to be split. We emit an ordered array of
- *     <=64-byte strings; concatenating them in order reproduces the stream.
+ *     longer, so it has to be split. CIP-0170 1.1 (CIPs#1287) settled it: an
+ *     ordered list of byte strings of at most 64 bytes each. We first used text
+ *     chunks; the AUTH_BEGIN at 123c5d18… is still on chain in that form.
  *  2. The spec says `d` is "the CESR digest of the data" without fixing a
  *     canonical serialisation. We sidestep the ambiguity by SAIDifying the
  *     application payload, so `d` is the payload's own self-addressing
@@ -66,36 +67,28 @@ export function toHexSequence(sequenceNumber: number | string): string {
 }
 
 /**
- * Split a string into chunks of at most 64 *bytes*.
+ * Split a byte stream into chunks of at most 64 bytes, in order.
  *
- * Byte-wise rather than character-wise on purpose: a CESR stream is ASCII, so
- * the two agree there, but an application payload need not be, and a
- * character-wise split would silently emit oversized nodes that only fail at
- * submission time.
+ * The chunks are Uint8Arrays, which Lucid encodes as CBOR byte strings: CIP-0170
+ * types `c` as bytes, and a schema-validating indexer rejects text chunks.
  */
-export function chunk64(value: string): string[] {
-    if (byteLength(value) <= METADATA_STRING_LIMIT) return [value];
-
-    const chunks: string[] = [];
-    let current = '';
-
-    // Iterate by code point so a surrogate pair is never torn in half.
-    for (const ch of value) {
-        if (byteLength(current + ch) > METADATA_STRING_LIMIT) {
-            chunks.push(current);
-            current = ch;
-        } else {
-            current += ch;
-        }
+export function chunk64(stream: Uint8Array): Uint8Array[] {
+    const chunks: Uint8Array[] = [];
+    for (let at = 0; at < stream.length; at += METADATA_STRING_LIMIT) {
+        chunks.push(stream.slice(at, at + METADATA_STRING_LIMIT));
     }
-    if (current !== '') chunks.push(current);
-
-    return chunks;
+    return chunks.length > 0 ? chunks : [new Uint8Array(0)];
 }
 
 /** Inverse of {@link chunk64}. */
-export function unchunk64(chunks: readonly string[]): string {
-    return chunks.join('');
+export function unchunk64(chunks: readonly Uint8Array[]): Uint8Array {
+    const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+    let at = 0;
+    for (const c of chunks) {
+        out.set(c, at);
+        at += c.length;
+    }
+    return out;
 }
 
 export interface AttestArgs {
@@ -151,7 +144,8 @@ function buildAuth(type: 'AUTH_BEGIN' | 'AUTH_END', args: AuthArgs): Record<stri
         t: type,
         s: schemaSaid,
         i: signerAid,
-        c: chunk64(chain),
+        // The qb64b variant: the CESR text stream's UTF-8 bytes.
+        c: chunk64(utf8.encode(chain)),
         v: { v: CIP_VERSION, k: KERI_VERSION, a: ACDC_VERSION },
     };
     if (extra !== undefined) body.m = extra;
@@ -170,7 +164,7 @@ export function buildAuthEnd(args: AuthArgs): Record<string, unknown> {
 }
 
 /**
- * Walk a metadata object and throw on the first string over the 64-byte limit.
+ * Walk a metadata object and throw on the first text or byte string over the 64-byte limit.
  *
  * Call this before every submission. Blockfrost's rejection message for an
  * oversized node is not obviously about string length, so failing here with a
@@ -181,6 +175,12 @@ export function assertMetadataValid(metadata: unknown, path = ''): void {
         const len = byteLength(metadata);
         if (len > METADATA_STRING_LIMIT) {
             throw new MetadataStringTooLongError(path || '<root>', len);
+        }
+        return;
+    }
+    if (metadata instanceof Uint8Array) {
+        if (metadata.length > METADATA_STRING_LIMIT) {
+            throw new MetadataStringTooLongError(path || '<root>', metadata.length);
         }
         return;
     }

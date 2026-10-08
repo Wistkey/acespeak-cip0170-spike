@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, test } from 'vitest';
 import {
+    CML,
     Emulator,
     generateEmulatorAccount,
     Lucid,
@@ -138,7 +139,7 @@ describe('AUTH_BEGIN submission', () => {
         expect(result.txHash).toMatch(/^[0-9a-f]{64}$/);
     });
 
-    test('the real credential chain fits within the transaction size limit', () => {
+    test('the real credential chain fits within the transaction size limit', async () => {
         const chain = readFileSync(artifact('auth-begin-chain.cesr'), 'utf8');
         const metadata = buildAuthBegin({
             signerAid: ANCHOR.i,
@@ -147,6 +148,30 @@ describe('AUTH_BEGIN submission', () => {
             extra: { l: [ACESPEAK_METADATA_LABEL] },
         });
 
-        expect(JSON.stringify(metadata).length).toBeLessThan(PROTOCOL_PARAMETERS_DEFAULT.maxTxSize);
+        // Measure the signed transaction, not a JSON rendering: the chunks are
+        // byte strings, which JSON.stringify does not size meaningfully.
+        const built = await buildMetadataTx(lucid, metadata);
+        expect(built.cborHex.length / 2).toBeLessThan(PROTOCOL_PARAMETERS_DEFAULT.maxTxSize);
+    });
+
+    test('puts the chain on chain as CBOR byte strings, not text', async () => {
+        // CIP-0170 1.1 (CIPs#1287) types `c` as a list of byte strings; text
+        // chunks fail its schema. Read the built transaction, not the input object.
+        const chain = readFileSync(artifact('auth-begin-chain.cesr'), 'utf8');
+        const built = await buildMetadataTx(
+            lucid,
+            buildAuthBegin({ signerAid: ANCHOR.i, schemaSaid: SCHEMA_SAID, chain })
+        );
+
+        const bytes = fromTransactionCbor(built.cborHex).bytes(170)!;
+        const datum = CML.TransactionMetadatum.from_cbor_bytes(bytes);
+        const detailed = JSON.parse(datum.to_json()) as {
+            map: Array<{ k: { string: string }; v: { list?: Array<Record<string, string>> } }>;
+        };
+        datum.free();
+
+        const c = detailed.map.find((e) => e.k.string === 'c')!.v.list!;
+        expect(c.every((chunk) => 'bytes' in chunk)).toBe(true);
+        expect(Buffer.from(c.map((chunk) => chunk.bytes).join(''), 'hex').toString('utf8')).toBe(chain);
     });
 });

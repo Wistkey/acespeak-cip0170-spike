@@ -22,7 +22,12 @@ not: a fee counts only when it is not paid from the applicant's own wallets.
 | | Transaction | Fee paid by | Counts as adoption |
 |---|---|---|---|
 | **`ATTEST`** | [`046c0ce93e03ed6d…`](https://preprod.cardanoscan.io/transaction/046c0ce93e03ed6d6f709d8930f2611943b5d93c202aca6263bd38b9a5ca39dc) | `learner-demo` — 0.183541 tADA | **Yes** |
-| **`AUTH_BEGIN`** | [`123c5d18bb2317fd…`](https://preprod.cardanoscan.io/transaction/123c5d18bb2317fdbdc85eb10e1f862591590c224113936a038835cd1ba7270d) | `acespeak-issuer` — 0.632693 tADA | No, by design |
+| **`AUTH_BEGIN`** | [`f608a27c51417cee…`](https://preprod.cardanoscan.io/transaction/f608a27c51417cee47a546daae747abf2f77f7c1c0722fba24e618bd38846a9a) | `acespeak-issuer` — 0.632693 tADA | No, by design |
+
+The `AUTH_BEGIN` was republished once, for the same credential and chain, when CIP-0170 1.1
+fixed the encoding of `c` as byte strings. The first one,
+[`123c5d18…`](https://preprod.cardanoscan.io/transaction/123c5d18bb2317fdbdc85eb10e1f862591590c224113936a038835cd1ba7270d),
+used text chunks and is superseded. See [`READINESS.md`](READINESS.md) §3.1.
 
 Verified against live chain data, with no API key:
 

@@ -1,7 +1,7 @@
 {
   "type": "AUTH_BEGIN",
-  "txHash": "123c5d18bb2317fdbdc85eb10e1f862591590c224113936a038835cd1ba7270d",
-  "explorer": "https://preprod.cardanoscan.io/transaction/123c5d18bb2317fdbdc85eb10e1f862591590c224113936a038835cd1ba7270d",
+  "txHash": "f608a27c51417cee47a546daae747abf2f77f7c1c0722fba24e618bd38846a9a",
+  "explorer": "https://preprod.cardanoscan.io/transaction/f608a27c51417cee47a546daae747abf2f77f7c1c0722fba24e618bd38846a9a",
   "network": "preprod",
   "signerAid": "ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2",
   "schemaSaid": "EPJf2sb-UftDmFkY2e8icfcA-RPeUVfkYQR3Qw2fAsAy",
@@ -9,6 +9,11 @@
   "registryId": "EGHrTs1zBVeRTb4hC4sn4LcbOFIWbUBW5drAd81dScWS",
   "chainBytes": 10110,
   "chainChunks": 158,
+  "chainEncoding": "byte strings (CIP-0170 1.1)",
+  "supersedes": {
+    "txHash": "123c5d18bb2317fdbdc85eb10e1f862591590c224113936a038835cd1ba7270d",
+    "reason": "Published `c` as text chunks; CIP-0170 1.1 requires byte strings. Same credential, same chain."
+  },
   "feePaidBy": "addr_test1qpc8szswzp35c7f4f0znrwsvzccnxl5hrtglqq7jy3qkj0nz0m62jpesyr4rng6hmv5jjdvkjv9xur26ma3lsdhvvzrs5k33mc",
   "feeLovelace": "632693",
   "note": "Paid by AceSpeak. This is our own setup transaction and is deliberately excluded from any adoption count."
