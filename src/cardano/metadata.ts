@@ -11,10 +11,12 @@
  *     longer, so it has to be split. CIP-0170 1.1 (CIPs#1287) settled it: an
  *     ordered list of byte strings of at most 64 bytes each. We first used text
  *     chunks; the AUTH_BEGIN at 123c5d18… is still on chain in that form.
- *  2. The spec says `d` is "the CESR digest of the data" without fixing a
- *     canonical serialisation. We sidestep the ambiguity by SAIDifying the
- *     application payload, so `d` is the payload's own self-addressing
- *     identifier and any verifier recomputes it the same way. See src/keri/credential.ts.
+ *  2. The spec said `d` is "the CESR digest of the data" without fixing a
+ *     serialisation (we raised it as CIPs#1249). It is now fixed by CIPs#1253:
+ *     `d` is the Blake3-256 digest of the CBOR bytes of the metadatum value at
+ *     the application label, exactly as they appear in the transaction. See
+ *     src/cardano/cbor.ts and scripts/03-attest.ts, which re-reads the bytes
+ *     from the built transaction before submitting.
  */
 
 /** The metadata label CIP-0170 fixes for itself. */

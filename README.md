@@ -88,6 +88,7 @@ non-zero on failure. (Set `BLOCKFROST_PROJECT_ID` to read through Blockfrost ins
   ✓ KEL parses  (7 events)
   ✓ KEL chain is intact
   ✓ KEL belongs to the signer  (ENIjVYIWIcxMekADdujdjlmLt0m8XKDiHVLsAkdRc_o2)
+  ✓ KEL signatures and witness receipts verify  (0:1+3w 1:1+3w 2:1+3w 3:1+3w 4:1+3w 5:1+3w 6:1+3w)
   ✓ KEL has an event at sequence s  (6)
   ✓ event at s anchors the digest as a seal
 
@@ -108,7 +109,7 @@ but the attestation claims EABWjePbDoSvZzuuJPeasCNRQQiR3m0j0jLQwqPRBLlb — the 
 was altered after issuance
 ```
 
-`npm test` runs 144 tests with no network and no Docker — and CI runs them on a clean
+`npm test` runs 150 tests with no network and no Docker — and CI runs them on a clean
 Ubuntu runner with Node 20, so that claim is checkable rather than asserted.
 
 **Cross-check the committed KEL against a live witness.** The default verifies against

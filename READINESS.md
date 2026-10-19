@@ -32,10 +32,12 @@ transactions rather than sponsored ones.
 Stated plainly, because overclaiming here would be worse than a narrow scope honestly
 described.
 
+**Verified since 19 Oct 2026: the KEL itself** (`src/keri/signatures.ts`). Every event's SAID is recomputed from its content, at least `kt` controller signatures verify against the current keys, at least `bt` witness receipts verify against the current witnesses, and rotations must use pre-committed keys. Before this, `verify.ts` checked only that events named each other in order. An event could be edited while keeping its `d`, and nothing would notice. The committed KEL passes: 7 events, each with 1 controller signature and 3 of 3 witness receipts (TOAD 2).
+
 | Not verified | Why | What would close it |
 |---|---|---|
-| **Controller signatures on KEL events** | `verify.ts` parses the CESR stream and discards the attachments. It confirms the KEL is internally consistent — every event names its predecessor's digest, sequence numbers are gapless, one identifier throughout — which makes the committed KEL tamper-evident, but it does not verify the indexed signatures. | Verify each event's indexed signatures against the key state from the preceding establishment event, using signify-ts' `Verfer`. Scoped for the Pilot build, not the spike. |
 | **Signing authority over the metadata label** | That requires validating the `AUTH_BEGIN` credential chain with an ACDC verifier. The spike publishes the chain but does not verify it back. | An ACDC v1 verifier in the public verifier service. |
+| **`AUTH_END` (revocation)** | `buildAuthEnd` exists, but no `AUTH_END` was ever submitted. The original KERIA agent kept its state inside the container (the compose file had no volume), and that state is gone. That includes the credential registry and the issued credential that a revocation would have to update. The keys can be re-derived from the passcode, but the agent's registry and KEL state can't, so **this credential cannot be revoked**. | The compose file now persists KERIA and the witnesses in named volumes (19 Oct 2026). A revocation demo needs a fresh identifier and credential chain: `AUTH_BEGIN` → `ATTEST` → `AUTH_END`. |
 | **Root of trust** | The credential chain is self-issued. | CIP-0170 is explicitly trust-agnostic about the root, so this is a later decision — rooting AceSpeak's chain under a stronger authority — not a Milestone 1 blocker. |
 | **Mainnet behaviour** | Everything here is preprod. | Mainnet deployment is an explicit Pilot deliverable. |
 
