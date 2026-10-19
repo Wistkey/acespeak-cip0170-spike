@@ -73,6 +73,10 @@ services:
             - PYTHONIOENCODING=UTF-8
         volumes:
             - ./config/keria.json:/keria/config/keri/cf/keria.json
+            # The agent's keystore, KELs and credential registries. Without this
+            # volume they live in the container and are lost when it is removed,
+            # which is how the original AUTH_BEGIN registry was lost (READINESS.md).
+            - keria-data:/usr/local/var/keri
         entrypoint: keria
         command:
             - start
@@ -109,7 +113,13 @@ services:
             start_period: 2s
         volumes:
             - ./config/witness-demo:/keripy/scripts/keri/cf/main
+            # The witnesses' keystores and the receipts they hold.
+            - witness-data:/usr/local/var/keri
         ports:
             - 5642:5642
             - 5643:5643
             - 5644:5644
+
+volumes:
+    keria-data:
+    witness-data:

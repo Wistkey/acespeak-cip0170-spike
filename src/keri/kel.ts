@@ -61,10 +61,9 @@ const KEY_EVENT_TYPES: ReadonlySet<string> = new Set(['icp', 'rot', 'ixn', 'dip'
 /**
  * Parse a CESR stream into every message it carries, discarding attachments.
  *
- * Discarding the attachments is a real limitation, not an oversight: it means
- * this parser establishes *what the stream says*, not that the controller
- * signed it. {@link verifyKelLinkage} covers tamper-evidence within the stream.
- * READINESS.md states the boundary plainly.
+ * This parser establishes *what the stream says*. That the controller and the
+ * witnesses signed it, and that each event's SAID matches its content, is
+ * checked by `verifyKelSignatures` in ./signatures.ts.
  */
 export function parseCesrStream(stream: string): KeriEvent[] {
     const trimmed = stream.trim();
@@ -167,7 +166,7 @@ export interface LinkageResult {
  *
  * This is what makes the committed `artifacts/issuer-kel.cesr` tamper-evident
  * without a live witness: altering an event breaks the `p` link of the one
- * after it. It does not verify signatures — see the module note.
+ * after it. SAIDs, signatures and witness receipts: ./signatures.ts.
  */
 export function verifyKelLinkage(events: readonly KeriEvent[]): LinkageResult {
     if (events.length === 0) return { ok: false, reason: 'KEL is empty' };

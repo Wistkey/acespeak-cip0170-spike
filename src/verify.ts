@@ -35,6 +35,7 @@ import { ready } from 'signify-ts';
 import { CIP0170_LABEL, CIP_VERSION } from './cardano/metadata.ts';
 import { decodeMetadatum, digestMetadatum, type MetadatumSource } from './cardano/cbor.ts';
 import { findEventBySequence, hasDigestSeal, parseKel, verifyKelLinkage } from './keri/kel.ts';
+import { verifyKelSignatures } from './keri/signatures.ts';
 
 export interface Check {
     name: string;
@@ -196,6 +197,13 @@ export function verifyAttestation(options: VerifyOptions): VerificationResult {
             checks,
             attestation,
         };
+    }
+
+    // ---- 3b. Every event is authentic: SAID, controller signatures, witness receipts
+    const signed = verifyKelSignatures(kel, i);
+    const receipts = signed.events.map((e) => `${e.s}:${e.signatures}+${e.receipts}w`).join(' ');
+    if (!add('KEL signatures and witness receipts verify', signed.ok, signed.ok ? receipts : signed.reason)) {
+        return { valid: false, reason: `issuer KEL is not authentic: ${signed.reason}`, checks, attestation };
     }
 
     // ---- 4. The digest is anchored at the claimed sequence number ----------
